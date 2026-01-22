@@ -142,6 +142,10 @@ The plugin supports both English and Arabic. Language is automatically detected 
 
 Apache 2.0
 
+## Contributors
+
+- [Nasser](https://github.com/newer97) - iOS implementation (QLPreviewController + PencilKit)
+
 ## Credits
 
 - [AndroidX PDF Viewer](https://developer.android.com/jetpack/androidx/releases/pdf)
