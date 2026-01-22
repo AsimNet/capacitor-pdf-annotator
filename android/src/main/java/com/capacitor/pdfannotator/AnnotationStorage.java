@@ -90,6 +90,7 @@ public class AnnotationStorage {
                     JSONObject strokeObj = new JSONObject();
                     strokeObj.put("color", stroke.color);
                     strokeObj.put("strokeWidth", stroke.strokeWidth);
+                    strokeObj.put("brushType", stroke.brushType);
 
                     JSONArray pointsArray = new JSONArray();
                     for (PointF point : stroke.points) {
@@ -158,8 +159,9 @@ public class AnnotationStorage {
                     JSONObject strokeObj = strokesArray.getJSONObject(j);
                     int color = strokeObj.getInt("color");
                     float strokeWidth = (float) strokeObj.getDouble("strokeWidth");
+                    int brushType = strokeObj.optInt("brushType", 0); // Default to pressure pen (0) for legacy strokes
 
-                    InkCanvasView.InkStroke stroke = new InkCanvasView.InkStroke(pageIndex, color, strokeWidth);
+                    InkCanvasView.InkStroke stroke = new InkCanvasView.InkStroke(pageIndex, color, strokeWidth, brushType);
 
                     JSONArray pointsArray = strokeObj.getJSONArray("points");
                     for (int k = 0; k < pointsArray.length(); k++) {

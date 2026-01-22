@@ -51,6 +51,7 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
     private boolean eraserMode = false;
     private InkCanvasView.OnInkChangeListener onInkChangeListener;
     private AndroidXInkView.OnDrawingStateListener onDrawingStateListener;
+    private ZoomableFrameLayout.OnGestureStateListener onGestureStateListener;
 
     public PdfPagerAdapter(Context context, File pdfFile, boolean enableInk) throws IOException {
         this.context = context;
@@ -79,10 +80,6 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
         for (AndroidXInkView canvas : inkCanvasMap.values()) {
             canvas.setDrawingEnabled(enabled);
         }
-        // Also update zoom containers so they know when to allow single-finger pan
-        for (ZoomableFrameLayout container : zoomContainerMap.values()) {
-            container.setDrawingEnabled(enabled);
-        }
     }
 
     public void setBrushType(int type) {
@@ -107,6 +104,16 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
         return eraserMode;
     }
 
+    /**
+     * Reset stylus eraser state on all ink canvases.
+     * Called when user manually changes modes to prevent auto-eraser interference.
+     */
+    public void resetStylusEraserState() {
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
+            canvas.resetStylusEraserState();
+        }
+    }
+
     public void setOnInkChangeListener(InkCanvasView.OnInkChangeListener listener) {
         this.onInkChangeListener = listener;
     }
@@ -115,6 +122,13 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
         this.onDrawingStateListener = listener;
         for (AndroidXInkView canvas : inkCanvasMap.values()) {
             canvas.setOnDrawingStateListener(listener);
+        }
+    }
+
+    public void setOnGestureStateListener(ZoomableFrameLayout.OnGestureStateListener listener) {
+        this.onGestureStateListener = listener;
+        for (ZoomableFrameLayout container : zoomContainerMap.values()) {
+            container.setOnGestureStateListener(listener);
         }
     }
 
@@ -244,6 +258,11 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
 
         // Store zoom container reference
         zoomContainerMap.put(position, holder.zoomContainer);
+
+        // Set gesture state listener for toolbox hiding during pan/zoom
+        if (onGestureStateListener != null) {
+            holder.zoomContainer.setOnGestureStateListener(onGestureStateListener);
+        }
 
         // Reset zoom when page is bound
         holder.zoomContainer.resetZoom();

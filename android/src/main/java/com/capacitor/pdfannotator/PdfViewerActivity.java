@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-public class PdfViewerActivity extends AppCompatActivity implements InkCanvasView.OnInkChangeListener, AndroidXInkView.OnDrawingStateListener {
+public class PdfViewerActivity extends AppCompatActivity implements InkCanvasView.OnInkChangeListener, AndroidXInkView.OnDrawingStateListener, ZoomableFrameLayout.OnGestureStateListener {
 
     private static final String TAG = "PdfViewerActivity";
 
@@ -333,7 +333,14 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
             // Exit eraser mode when selecting color
             if (isEraserMode) {
                 isEraserMode = false;
-                btnEraser.setAlpha(1.0f);
+                btnEraser.setBackground(null);
+                if (pagerAdapter != null) {
+                    pagerAdapter.setEraserMode(false);
+                }
+            }
+            // Reset stylus eraser tracking when manually changing color
+            if (pagerAdapter != null) {
+                pagerAdapter.resetStylusEraserState();
             }
 
             updateInkColor();
@@ -422,6 +429,10 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
             if (pagerAdapter != null) {
                 pagerAdapter.setEraserMode(false);
             }
+        }
+        // Reset stylus eraser tracking when manually changing brush
+        if (pagerAdapter != null) {
+            pagerAdapter.resetStylusEraserState();
         }
 
         // Show brush type feedback
@@ -552,6 +563,7 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
                         pagerAdapter.setDrawingEnabled(isDrawingMode);
                         pagerAdapter.setOnInkChangeListener(this);
                         pagerAdapter.setOnDrawingStateListener(this);
+                        pagerAdapter.setOnGestureStateListener(this);
 
                         // Load saved annotations
                         if (!savedAnnotations.isEmpty()) {
@@ -841,6 +853,29 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
     @Override
     public void onDrawingEnded() {
         // Fade in toolbox when drawing ends
+        if (floatingToolbox != null && floatingToolbox.getVisibility() == View.VISIBLE) {
+            floatingToolbox.animate()
+                    .alpha(TOOLBOX_ALPHA_IDLE)
+                    .setDuration(TOOLBOX_ANIMATION_DURATION)
+                    .start();
+        }
+    }
+
+    // OnGestureStateListener implementation
+    @Override
+    public void onGestureStarted() {
+        // Fade out toolbox while panning/zooming
+        if (floatingToolbox != null && floatingToolbox.getVisibility() == View.VISIBLE) {
+            floatingToolbox.animate()
+                    .alpha(TOOLBOX_ALPHA_DRAWING)
+                    .setDuration(TOOLBOX_ANIMATION_DURATION)
+                    .start();
+        }
+    }
+
+    @Override
+    public void onGestureEnded() {
+        // Fade in toolbox when panning/zooming ends
         if (floatingToolbox != null && floatingToolbox.getVisibility() == View.VISIBLE) {
             floatingToolbox.animate()
                     .alpha(TOOLBOX_ALPHA_IDLE)

@@ -74,7 +74,26 @@ class AndroidXInkView @JvmOverloads constructor(
 
     // Stroke storage
     private val finishedStrokes = mutableListOf<Stroke>()
-    private val undoStack = mutableListOf<Stroke>()
+    private val strokeBrushTypes = mutableMapOf<Stroke, Int>() // Track brush type for each stroke
+
+    // Action-based undo/redo system (supports both drawing and erasing)
+    sealed class UndoableAction {
+        data class AddStroke(val stroke: Stroke, val brushType: Int) : UndoableAction()
+        data class AddLegacyStroke(val stroke: InkCanvasView.InkStroke) : UndoableAction()
+        data class EraseStrokes(
+            val erasedStrokes: List<Stroke>,
+            val erasedBrushTypes: Map<Stroke, Int>,
+            val erasedLegacyStrokes: List<InkCanvasView.InkStroke>
+        ) : UndoableAction()
+    }
+
+    private val undoStack = mutableListOf<UndoableAction>()
+    private val redoStack = mutableListOf<UndoableAction>()
+
+    // Track strokes erased in current erase gesture (to batch them into one undo action)
+    private var currentEraseAction: MutableList<Stroke> = mutableListOf()
+    private var currentEraseBrushTypes: MutableMap<Stroke, Int> = mutableMapOf()
+    private var currentEraseLegacyStrokes: MutableList<InkCanvasView.InkStroke> = mutableListOf()
 
     // Current brush settings
     private var currentBrush: Brush
@@ -203,7 +222,11 @@ class AndroidXInkView @JvmOverloads constructor(
         Log.d(TAG, "🖊️ AndroidX Ink: ${strokes.size} stroke(s) finished with pressure sensitivity")
         for ((_, stroke) in strokes) {
             finishedStrokes.add(stroke)
-            undoStack.clear() // Clear redo stack on new stroke
+            val currentBrushTypeId = brushType.id
+            strokeBrushTypes[stroke] = currentBrushTypeId
+            // Add to undo stack and clear redo stack
+            undoStack.add(UndoableAction.AddStroke(stroke, currentBrushTypeId))
+            redoStack.clear()
         }
 
         // Remove finished strokes from InProgressStrokesView
@@ -259,6 +282,16 @@ class AndroidXInkView @JvmOverloads constructor(
     fun isEraserModeActive(): Boolean = isEraserMode
 
     /**
+     * Reset stylus eraser state when user manually changes modes.
+     * This prevents the auto-eraser feature from interfering with manual mode changes.
+     */
+    fun resetStylusEraserState() {
+        wasEraserModeBeforeStylus = null
+        isUsingEraserTip = false
+        Log.d(TAG, "Stylus eraser state reset")
+    }
+
+    /**
      * Handle eraser touch - remove strokes that intersect with the eraser path
      * Uses the same approach as Cahier: segment-based parallelogram hit-testing
      */
@@ -282,6 +315,12 @@ class AndroidXInkView @JvmOverloads constructor(
         }
 
         if (strokesToRemove.isNotEmpty()) {
+            // Track erased strokes for undo
+            for (stroke in strokesToRemove) {
+                currentEraseAction.add(stroke)
+                strokeBrushTypes[stroke]?.let { currentEraseBrushTypes[stroke] = it }
+                strokeBrushTypes.remove(stroke)
+            }
             finishedStrokes.removeAll(strokesToRemove.toSet())
             finishedStrokesView.setStrokes(finishedStrokes)
             removedCount += strokesToRemove.size
@@ -300,6 +339,8 @@ class AndroidXInkView @JvmOverloads constructor(
         }
 
         if (legacyToRemove.isNotEmpty()) {
+            // Track erased legacy strokes for undo
+            currentEraseLegacyStrokes.addAll(legacyToRemove)
             finishedStrokesView.removeLegacyStrokes(legacyToRemove)
             removedCount += legacyToRemove.size
         }
@@ -531,6 +572,8 @@ class AndroidXInkView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 previousErasePoint = null
+                // Start a new erase session for undo
+                startEraseSession()
                 // Request parent to not intercept while erasing
                 parent?.requestDisallowInterceptTouchEvent(true)
                 // Notify drawing started (erasing counts as active drawing)
@@ -544,6 +587,8 @@ class AndroidXInkView @JvmOverloads constructor(
                 if (event.pointerCount >= 2) {
                     isMultiTouchActive = true
                     previousErasePoint = null
+                    // Finalize erase session before switching
+                    finalizeEraseSession()
                     // Allow parent to intercept for pan/zoom
                     parent?.requestDisallowInterceptTouchEvent(false)
                     // Notify drawing ended
@@ -556,6 +601,8 @@ class AndroidXInkView @JvmOverloads constructor(
                 if (event.pointerCount > 1) {
                     isMultiTouchActive = true
                     previousErasePoint = null
+                    // Finalize erase session before switching
+                    finalizeEraseSession()
                     // Allow parent to intercept for pan/zoom
                     parent?.requestDisallowInterceptTouchEvent(false)
                     // Notify drawing ended
@@ -569,6 +616,8 @@ class AndroidXInkView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 previousErasePoint = null
                 isMultiTouchActive = false
+                // Finalize erase session for undo
+                finalizeEraseSession()
                 // Notify drawing ended
                 onDrawingStateListener?.onDrawingEnded()
                 return true
@@ -579,6 +628,28 @@ class AndroidXInkView @JvmOverloads constructor(
             }
         }
         return false
+    }
+
+    private fun startEraseSession() {
+        currentEraseAction.clear()
+        currentEraseBrushTypes.clear()
+        currentEraseLegacyStrokes.clear()
+    }
+
+    private fun finalizeEraseSession() {
+        if (currentEraseAction.isNotEmpty() || currentEraseLegacyStrokes.isNotEmpty()) {
+            // Add the erase action to undo stack
+            undoStack.add(UndoableAction.EraseStrokes(
+                erasedStrokes = currentEraseAction.toList(),
+                erasedBrushTypes = currentEraseBrushTypes.toMap(),
+                erasedLegacyStrokes = currentEraseLegacyStrokes.toList()
+            ))
+            redoStack.clear()
+            Log.d(TAG, "Finalized erase session: ${currentEraseAction.size} AndroidX strokes, ${currentEraseLegacyStrokes.size} legacy strokes")
+        }
+        currentEraseAction.clear()
+        currentEraseBrushTypes.clear()
+        currentEraseLegacyStrokes.clear()
     }
 
     /**
@@ -690,7 +761,10 @@ class AndroidXInkView @JvmOverloads constructor(
             // Get brush color
             val brushColor = Color.toArgb(stroke.brush.colorLong)
 
-            InkCanvasView.InkStroke(pageIndex, brushColor, stroke.brush.size).apply {
+            // Get brush type for this stroke (default to pressure pen if not tracked)
+            val strokeBrushType = strokeBrushTypes[stroke] ?: BRUSH_PRESSURE_PEN
+
+            InkCanvasView.InkStroke(pageIndex, brushColor, stroke.brush.size, strokeBrushType).apply {
                 for (point in points) {
                     this.points.add(point)
                 }
@@ -714,7 +788,9 @@ class AndroidXInkView @JvmOverloads constructor(
         // For loading, we'll keep the data but not convert to full AndroidX Strokes
         // The strokes will be stored but rendered via InkCanvasView compatibility
         finishedStrokes.clear()
+        strokeBrushTypes.clear()
         undoStack.clear()
+        redoStack.clear()
         finishedStrokesView.setLegacyStrokes(inkStrokes)
         finishedStrokesView.invalidate()
     }
@@ -725,49 +801,103 @@ class AndroidXInkView @JvmOverloads constructor(
     fun hasStrokes(): Boolean = finishedStrokes.isNotEmpty() || finishedStrokesView.hasLegacyStrokes()
 
     /**
-     * Clear all strokes
+     * Clear all strokes (creates a single undo action for all erased strokes)
      */
     fun clear() {
-        undoStack.addAll(finishedStrokes)
+        if (!hasStrokes()) return
+
+        // Create an erase action containing all strokes
+        val erasedStrokes = finishedStrokes.toList()
+        val erasedBrushTypes = strokeBrushTypes.toMap()
+        val erasedLegacyStrokes = finishedStrokesView.getLegacyStrokes().toList()
+
+        // Add to undo stack
+        undoStack.add(UndoableAction.EraseStrokes(erasedStrokes, erasedBrushTypes, erasedLegacyStrokes))
+        redoStack.clear()
+
+        // Clear the strokes
         finishedStrokes.clear()
+        strokeBrushTypes.clear()
         finishedStrokesView.clearLegacyStrokes()
         finishedStrokesView.invalidate()
         onInkChangeListener?.invoke()
     }
 
     /**
-     * Undo last stroke
+     * Undo last action (draw or erase)
      */
     fun undo() {
-        if (finishedStrokes.isNotEmpty()) {
-            val lastStroke = finishedStrokes.removeAt(finishedStrokes.size - 1)
-            undoStack.add(lastStroke)
-            finishedStrokesView.invalidate()
-            onInkChangeListener?.invoke()
+        if (undoStack.isEmpty()) return
+
+        val action = undoStack.removeAt(undoStack.size - 1)
+        when (action) {
+            is UndoableAction.AddStroke -> {
+                // Undo drawing: remove the stroke
+                finishedStrokes.remove(action.stroke)
+                strokeBrushTypes.remove(action.stroke)
+                redoStack.add(action)
+            }
+            is UndoableAction.AddLegacyStroke -> {
+                // Undo legacy stroke add: remove it
+                finishedStrokesView.removeLegacyStrokes(listOf(action.stroke))
+                redoStack.add(action)
+            }
+            is UndoableAction.EraseStrokes -> {
+                // Undo erasing: restore the erased strokes
+                finishedStrokes.addAll(action.erasedStrokes)
+                strokeBrushTypes.putAll(action.erasedBrushTypes)
+                finishedStrokesView.addLegacyStrokes(action.erasedLegacyStrokes)
+                redoStack.add(action)
+            }
         }
+        finishedStrokesView.invalidate()
+        onInkChangeListener?.invoke()
+        Log.d(TAG, "Undo: ${action::class.simpleName}")
     }
 
     /**
-     * Redo last undone stroke
+     * Redo last undone action
      */
     fun redo() {
-        if (undoStack.isNotEmpty()) {
-            val stroke = undoStack.removeAt(undoStack.size - 1)
-            finishedStrokes.add(stroke)
-            finishedStrokesView.invalidate()
-            onInkChangeListener?.invoke()
+        if (redoStack.isEmpty()) return
+
+        val action = redoStack.removeAt(redoStack.size - 1)
+        when (action) {
+            is UndoableAction.AddStroke -> {
+                // Redo drawing: add the stroke back
+                finishedStrokes.add(action.stroke)
+                strokeBrushTypes[action.stroke] = action.brushType
+                undoStack.add(action)
+            }
+            is UndoableAction.AddLegacyStroke -> {
+                // Redo legacy stroke add: add it back
+                finishedStrokesView.addLegacyStrokes(listOf(action.stroke))
+                undoStack.add(action)
+            }
+            is UndoableAction.EraseStrokes -> {
+                // Redo erasing: remove the strokes again
+                finishedStrokes.removeAll(action.erasedStrokes.toSet())
+                for (stroke in action.erasedStrokes) {
+                    strokeBrushTypes.remove(stroke)
+                }
+                finishedStrokesView.removeLegacyStrokes(action.erasedLegacyStrokes)
+                undoStack.add(action)
+            }
         }
+        finishedStrokesView.invalidate()
+        onInkChangeListener?.invoke()
+        Log.d(TAG, "Redo: ${action::class.simpleName}")
     }
 
     /**
      * Check if redo is available
      */
-    fun canRedo(): Boolean = undoStack.isNotEmpty()
+    fun canRedo(): Boolean = redoStack.isNotEmpty()
 
     /**
      * Check if undo is available
      */
-    fun canUndo(): Boolean = finishedStrokes.isNotEmpty()
+    fun canUndo(): Boolean = undoStack.isNotEmpty()
 
     /**
      * Inner view for rendering finished strokes
@@ -787,6 +917,10 @@ class AndroidXInkView @JvmOverloads constructor(
 
         fun clearLegacyStrokes() {
             legacyStrokes.clear()
+        }
+
+        fun addLegacyStrokes(strokes: List<InkCanvasView.InkStroke>) {
+            legacyStrokes.addAll(strokes)
         }
 
         fun hasLegacyStrokes(): Boolean = legacyStrokes.isNotEmpty()
@@ -821,23 +955,41 @@ class AndroidXInkView @JvmOverloads constructor(
                 )
             }
 
-            // Draw legacy strokes (loaded from JSON) with proper blend mode for highlighter
+            // Draw legacy strokes (loaded from JSON) with proper layer-based rendering for highlighter
             for (inkStroke in legacyStrokes) {
+                val isHighlighter = inkStroke.brushType == BRUSH_HIGHLIGHTER ||
+                        (inkStroke.brushType == 0 && Color.alpha(inkStroke.color) < 255) // Legacy detection
+
                 val paint = Paint().apply {
-                    color = inkStroke.color
                     strokeWidth = inkStroke.strokeWidth
                     style = Paint.Style.STROKE
                     strokeCap = Paint.Cap.ROUND
                     strokeJoin = Paint.Join.ROUND
                     isAntiAlias = true
-
-                    // Detect highlighter by checking alpha < 255
-                    // Use MULTIPLY blend mode to prevent multiple passes from becoming opaque
-                    if (Color.alpha(inkStroke.color) < 255) {
-                        xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
-                    }
                 }
-                canvas.drawPath(inkStroke.path, paint)
+
+                if (isHighlighter) {
+                    // Use layer-based rendering for highlighter to ensure consistent alpha
+                    // This prevents darkening when overlapping or after save/load
+                    val alpha = Color.alpha(inkStroke.color)
+                    paint.color = Color.argb(255, Color.red(inkStroke.color),
+                        Color.green(inkStroke.color), Color.blue(inkStroke.color))
+
+                    // Calculate bounds for the path
+                    val bounds = RectF()
+                    inkStroke.path.computeBounds(bounds, true)
+                    // Expand bounds slightly for stroke width
+                    bounds.inset(-inkStroke.strokeWidth, -inkStroke.strokeWidth)
+
+                    // Save layer with alpha - this ensures proper transparency
+                    val saveCount = canvas.saveLayerAlpha(bounds, alpha)
+                    canvas.drawPath(inkStroke.path, paint)
+                    canvas.restoreToCount(saveCount)
+                } else {
+                    // Regular stroke rendering
+                    paint.color = inkStroke.color
+                    canvas.drawPath(inkStroke.path, paint)
+                }
             }
 
             // Draw hover cursor when stylus is hovering

@@ -50,6 +50,7 @@ public class InkCanvasView extends View {
         public int pageIndex;
         public int color;
         public float strokeWidth;
+        public int brushType = 0; // Default to pressure pen (0)
         public List<PointF> points;
         public Path path;
 
@@ -57,6 +58,15 @@ public class InkCanvasView extends View {
             this.pageIndex = pageIndex;
             this.color = color;
             this.strokeWidth = strokeWidth;
+            this.points = new ArrayList<>();
+            this.path = new Path();
+        }
+
+        public InkStroke(int pageIndex, int color, float strokeWidth, int brushType) {
+            this.pageIndex = pageIndex;
+            this.color = color;
+            this.strokeWidth = strokeWidth;
+            this.brushType = brushType;
             this.points = new ArrayList<>();
             this.path = new Path();
         }

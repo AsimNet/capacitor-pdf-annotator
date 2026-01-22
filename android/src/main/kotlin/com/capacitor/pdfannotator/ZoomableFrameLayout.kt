@@ -38,14 +38,10 @@ class ZoomableFrameLayout @JvmOverloads constructor(
     private var lastPanX = 0f
     private var lastPanY = 0f
     private var isPanning = false
-    private var isSingleFingerPanning = false
 
     // Gesture tracking to prevent leaking to parent ViewPager2
     private var multiTouchGestureStarted = false
     private var gesturePointerCount = 0
-
-    // Drawing mode state - when OFF and zoomed, allow single-finger pan
-    private var drawingEnabled = false
 
     // Gesture detectors
     private val scaleDetector: ScaleGestureDetector
@@ -53,6 +49,20 @@ class ZoomableFrameLayout @JvmOverloads constructor(
 
     // Listener for zoom changes
     var onZoomChangeListener: ((scale: Float, translateX: Float, translateY: Float) -> Unit)? = null
+
+    // Listener for gesture state changes (pan/zoom start/end)
+    var onGestureStateListener: OnGestureStateListener? = null
+
+    /**
+     * Interface to listen for gesture state changes.
+     * Useful for hiding UI elements while user is actively panning/zooming.
+     */
+    interface OnGestureStateListener {
+        fun onGestureStarted()
+        fun onGestureEnded()
+    }
+
+    private var isGestureActive = false
 
     init {
         scaleDetector = ScaleGestureDetector(context, ScaleListener())
@@ -72,6 +82,11 @@ class ZoomableFrameLayout @JvmOverloads constructor(
             multiTouchGestureStarted = true
             // Request parent to not intercept touch events during our gesture
             parent?.requestDisallowInterceptTouchEvent(true)
+            // Notify gesture started
+            if (!isGestureActive) {
+                isGestureActive = true
+                onGestureStateListener?.onGestureStarted()
+            }
         }
 
         // Once a multi-touch gesture has started, consume ALL touch events
@@ -94,16 +109,6 @@ class ZoomableFrameLayout @JvmOverloads constructor(
             return true
         }
 
-        // Single-finger pan when zoomed in and drawing mode is OFF
-        if (isSingleFingerPanning) {
-            onTouchEvent(ev)
-            if (ev.actionMasked == MotionEvent.ACTION_UP ||
-                ev.actionMasked == MotionEvent.ACTION_CANCEL) {
-                isSingleFingerPanning = false
-            }
-            return true
-        }
-
         return super.dispatchTouchEvent(ev)
     }
 
@@ -111,24 +116,12 @@ class ZoomableFrameLayout @JvmOverloads constructor(
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 isPanning = false
-                isSingleFingerPanning = false
                 // Don't reset multiTouchGestureStarted here - it should persist
-
-                // If zoomed in and drawing mode is OFF, intercept single-finger for panning
-                if (isZoomedIn() && !drawingEnabled) {
-                    lastPanX = ev.x
-                    lastPanY = ev.y
-                    isSingleFingerPanning = true
-                    // Request parent to not intercept (prevents ViewPager2 swiping)
-                    parent?.requestDisallowInterceptTouchEvent(true)
-                    return true
-                }
             }
             MotionEvent.ACTION_POINTER_DOWN -> {
                 // Two or more fingers - intercept for pan/zoom
                 if (ev.pointerCount >= 2) {
                     multiTouchGestureStarted = true
-                    isSingleFingerPanning = false
                     return true
                 }
             }
@@ -136,11 +129,6 @@ class ZoomableFrameLayout @JvmOverloads constructor(
 
         // If a multi-touch gesture was started, continue intercepting until fully released
         if (multiTouchGestureStarted) {
-            return true
-        }
-
-        // If single-finger panning, continue intercepting
-        if (isSingleFingerPanning) {
             return true
         }
 
@@ -155,10 +143,8 @@ class ZoomableFrameLayout @JvmOverloads constructor(
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // Note: Gesture detectors are also called in dispatchTouchEvent
-        // to ensure proper handling when drawing is disabled
-        gestureDetector.onTouchEvent(event)
-        scaleDetector.onTouchEvent(event)
+        // Note: Gesture detectors are called in dispatchTouchEvent already
+        // Don't call them again here to avoid double-processing scale/gestures
 
         val pointerCount = event.pointerCount
 
@@ -175,48 +161,40 @@ class ZoomableFrameLayout @JvmOverloads constructor(
                     lastPanX = (event.getX(0) + event.getX(1)) / 2
                     lastPanY = (event.getY(0) + event.getY(1)) / 2
                     isPanning = true
-                    isSingleFingerPanning = false
                 }
             }
 
             MotionEvent.ACTION_MOVE -> {
-                // Single-finger pan when zoomed in and drawing mode is OFF
-                if (isSingleFingerPanning && pointerCount == 1) {
-                    val dx = event.x - lastPanX
-                    val dy = event.y - lastPanY
-
-                    translateX += dx
-                    translateY += dy
-
-                    lastPanX = event.x
-                    lastPanY = event.y
-
-                    clampTranslation()
-                    applyTransformation()
-                } else if (pointerCount >= 2 && !scaleDetector.isInProgress) {
-                    // Two-finger pan (when not actively scaling)
+                // Two-finger pan (works simultaneously with scaling)
+                if (pointerCount >= 2) {
                     val midX = (event.getX(0) + event.getX(1)) / 2
                     val midY = (event.getY(0) + event.getY(1)) / 2
 
+                    // Always apply pan delta - this works alongside scaling
+                    // The scale listener handles zoom-focus adjustment separately
                     val dx = midX - lastPanX
                     val dy = midY - lastPanY
 
                     translateX += dx
                     translateY += dy
 
+                    clampTranslation()
+                    applyTransformation()
+
                     lastPanX = midX
                     lastPanY = midY
                     isPanning = true
-
-                    clampTranslation()
-                    applyTransformation()
                 }
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 isPanning = false
-                isSingleFingerPanning = false
                 multiTouchGestureStarted = false
+                // Notify gesture ended
+                if (isGestureActive) {
+                    isGestureActive = false
+                    onGestureStateListener?.onGestureEnded()
+                }
             }
 
             MotionEvent.ACTION_POINTER_UP -> {
@@ -303,18 +281,6 @@ class ZoomableFrameLayout @JvmOverloads constructor(
      * Check if currently zoomed in
      */
     fun isZoomedIn(): Boolean = scaleFactor > 1.0f
-
-    /**
-     * Set drawing mode state.
-     * When zoomed in and drawing mode is OFF, single-finger touch will pan.
-     * When drawing mode is ON, single-finger touch will draw (passed to children).
-     */
-    fun setDrawingEnabled(enabled: Boolean) {
-        drawingEnabled = enabled
-        if (!enabled) {
-            isSingleFingerPanning = false
-        }
-    }
 
     /**
      * Double-tap to zoom toggle
