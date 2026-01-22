@@ -1,5 +1,9 @@
 # Capacitor PDF Annotator
 
+[![npm version](https://img.shields.io/npm/v/capacitor-pdf-annotator.svg)](https://www.npmjs.com/package/capacitor-pdf-annotator)
+[![npm downloads](https://img.shields.io/npm/dm/capacitor-pdf-annotator.svg)](https://www.npmjs.com/package/capacitor-pdf-annotator)
+[![License](https://img.shields.io/npm/l/capacitor-pdf-annotator.svg)](https://github.com/AsimNet/capacitor-pdf-annotator/blob/main/LICENSE)
+
 A Capacitor plugin for viewing and annotating PDF documents with stylus/pen support on iOS and Android.
 
 ## Features
