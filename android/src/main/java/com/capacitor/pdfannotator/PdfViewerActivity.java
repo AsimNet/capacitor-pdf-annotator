@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-public class PdfViewerActivity extends AppCompatActivity implements InkCanvasView.OnInkChangeListener {
+public class PdfViewerActivity extends AppCompatActivity implements InkCanvasView.OnInkChangeListener, AndroidXInkView.OnDrawingStateListener {
 
     private static final String TAG = "PdfViewerActivity";
 
@@ -108,6 +108,11 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
     private static final float SIZE_MEDIUM = 10f;
     private static final float SIZE_LARGE = 15f;
     private static final float SIZE_XLARGE = 20f;
+
+    // Toolbox animation constants
+    private static final long TOOLBOX_ANIMATION_DURATION = 150;
+    private static final float TOOLBOX_ALPHA_DRAWING = 0.3f;
+    private static final float TOOLBOX_ALPHA_IDLE = 1.0f;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -546,6 +551,7 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
                         pagerAdapter.setBrushType(currentBrushType);
                         pagerAdapter.setDrawingEnabled(isDrawingMode);
                         pagerAdapter.setOnInkChangeListener(this);
+                        pagerAdapter.setOnDrawingStateListener(this);
 
                         // Load saved annotations
                         if (!savedAnnotations.isEmpty()) {
@@ -817,6 +823,29 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
         // Clean up PDF adapter (closes native PdfRenderer)
         if (pagerAdapter != null) {
             pagerAdapter.cleanup();
+        }
+    }
+
+    // OnDrawingStateListener implementation
+    @Override
+    public void onDrawingStarted() {
+        // Fade out toolbox while drawing
+        if (floatingToolbox != null && floatingToolbox.getVisibility() == View.VISIBLE) {
+            floatingToolbox.animate()
+                    .alpha(TOOLBOX_ALPHA_DRAWING)
+                    .setDuration(TOOLBOX_ANIMATION_DURATION)
+                    .start();
+        }
+    }
+
+    @Override
+    public void onDrawingEnded() {
+        // Fade in toolbox when drawing ends
+        if (floatingToolbox != null && floatingToolbox.getVisibility() == View.VISIBLE) {
+            floatingToolbox.animate()
+                    .alpha(TOOLBOX_ALPHA_IDLE)
+                    .setDuration(TOOLBOX_ANIMATION_DURATION)
+                    .start();
         }
     }
 }

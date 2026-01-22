@@ -5,7 +5,12 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.PointF
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
+import android.os.Build
 import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
@@ -26,6 +31,7 @@ import androidx.ink.geometry.MutableSegment
 import androidx.ink.geometry.MutableVec
 import androidx.ink.rendering.android.canvas.CanvasStrokeRenderer
 import androidx.ink.strokes.Stroke
+import androidx.input.motionprediction.MotionEventPredictor
 
 /**
  * High-performance ink view using AndroidX Ink API 1.0.0.
@@ -86,6 +92,23 @@ class AndroidXInkView @JvmOverloads constructor(
     private var previousErasePoint: MutableVec? = null
     private val eraserPadding = 50f  // Hit-testing padding for eraser
 
+    // Stylus tool type tracking for auto-eraser
+    private var wasEraserModeBeforeStylus: Boolean? = null
+    private var isUsingEraserTip = false
+
+    // Motion prediction for reduced latency (~20-40ms improvement)
+    private var motionEventPredictor: MotionEventPredictor? = null
+
+    // Hover preview
+    private var hoverX = -1f
+    private var hoverY = -1f
+    private var isHovering = false
+    private val hoverCursorPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f
+        isAntiAlias = true
+    }
+
     // State
     var drawingEnabled: Boolean = false
         set(value) {
@@ -100,6 +123,16 @@ class AndroidXInkView @JvmOverloads constructor(
 
     // Callbacks
     private var onInkChangeListener: (() -> Unit)? = null
+    private var onDrawingStateListener: OnDrawingStateListener? = null
+
+    /**
+     * Interface to listen for drawing start/end events.
+     * Useful for hiding UI elements while user is actively drawing.
+     */
+    interface OnDrawingStateListener {
+        fun onDrawingStarted()
+        fun onDrawingEnded()
+    }
 
     init {
         Log.d(TAG, "🖊️ AndroidXInkView initialized - using AndroidX Ink API 1.0.0 with low-latency stylus support")
@@ -119,6 +152,18 @@ class AndroidXInkView @JvmOverloads constructor(
         // Add views in order: finished strokes (bottom), in-progress strokes (top)
         addView(finishedStrokesView)
         addView(inProgressStrokesView)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // Initialize motion prediction for reduced latency
+        motionEventPredictor = MotionEventPredictor.newInstance(this)
+        Log.d(TAG, "Motion prediction initialized for reduced stylus latency")
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        motionEventPredictor = null
     }
 
     private fun createBrush(@ColorInt color: Int, size: Float): Brush {
@@ -229,7 +274,9 @@ class AndroidXInkView @JvmOverloads constructor(
         val parallelogram = MutableParallelogram()
             .populateFromSegmentAndPadding(segment, eraserPadding)
 
-        // Find intersecting strokes using AndroidX Ink geometry
+        var removedCount = 0
+
+        // Find intersecting AndroidX strokes using Ink geometry
         val strokesToRemove = finishedStrokes.filter { stroke ->
             stroke.shape.intersects(parallelogram, AffineTransform.IDENTITY)
         }
@@ -237,12 +284,65 @@ class AndroidXInkView @JvmOverloads constructor(
         if (strokesToRemove.isNotEmpty()) {
             finishedStrokes.removeAll(strokesToRemove.toSet())
             finishedStrokesView.setStrokes(finishedStrokes)
+            removedCount += strokesToRemove.size
+        }
+
+        // Also erase legacy strokes (loaded from JSON)
+        val eraserRect = RectF(
+            x - eraserPadding, y - eraserPadding,
+            x + eraserPadding, y + eraserPadding
+        )
+
+        val legacyToRemove = finishedStrokesView.getLegacyStrokes().filter { stroke ->
+            val bounds = RectF()
+            stroke.path.computeBounds(bounds, true)
+            RectF.intersects(bounds, eraserRect) || pathIntersectsPoint(stroke.path, x, y, eraserPadding)
+        }
+
+        if (legacyToRemove.isNotEmpty()) {
+            finishedStrokesView.removeLegacyStrokes(legacyToRemove)
+            removedCount += legacyToRemove.size
+        }
+
+        if (removedCount > 0) {
             finishedStrokesView.invalidate()
             onInkChangeListener?.invoke()
-            Log.d(TAG, "Eraser removed ${strokesToRemove.size} stroke(s)")
+            Log.d(TAG, "Eraser removed $removedCount stroke(s)")
         }
 
         return true
+    }
+
+    /**
+     * Check if a path intersects with a point within a given radius
+     */
+    private fun pathIntersectsPoint(path: android.graphics.Path, x: Float, y: Float, radius: Float): Boolean {
+        val bounds = RectF()
+        path.computeBounds(bounds, true)
+
+        // Quick bounds check first
+        if (!bounds.intersects(x - radius, y - radius, x + radius, y + radius)) {
+            return false
+        }
+
+        // Sample points along the path using PathMeasure for more accurate hit testing
+        val pathMeasure = android.graphics.PathMeasure(path, false)
+        val coords = floatArrayOf(0f, 0f)
+        val length = pathMeasure.length
+        val step = 5f // Sample every 5 pixels
+
+        var distance = 0f
+        while (distance <= length) {
+            pathMeasure.getPosTan(distance, coords, null)
+            val dx = coords[0] - x
+            val dy = coords[1] - y
+            if (dx * dx + dy * dy <= radius * radius) {
+                return true
+            }
+            distance += step
+        }
+
+        return false
     }
 
     fun setOnInkChangeListener(listener: (() -> Unit)?) {
@@ -258,10 +358,29 @@ class AndroidXInkView @JvmOverloads constructor(
         }
     }
 
+    /**
+     * Set listener for drawing state changes (start/end)
+     */
+    fun setOnDrawingStateListener(listener: OnDrawingStateListener?) {
+        onDrawingStateListener = listener
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!drawingEnabled) {
             return false
+        }
+
+        // Enhanced palm rejection for Android 13+ (TIRAMISU)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val isCanceled = (event.flags and MotionEvent.FLAG_CANCELED) != 0
+            if (isCanceled) {
+                // This pointer was palm-rejected, cancel any strokes from it
+                val pointerId = event.getPointerId(event.actionIndex)
+                cancelStrokeForPointer(pointerId)
+                Log.d(TAG, "Palm rejection: stroke canceled for pointer $pointerId")
+                return true
+            }
         }
 
         // If multi-touch is active, don't handle - let parent handle pan/zoom
@@ -284,6 +403,39 @@ class AndroidXInkView @JvmOverloads constructor(
 
                 // Request parent to not intercept while we're drawing
                 parent?.requestDisallowInterceptTouchEvent(true)
+
+                // Detect stylus tool type for auto-eraser
+                val toolType = event.getToolType(event.actionIndex)
+                when (toolType) {
+                    MotionEvent.TOOL_TYPE_ERASER -> {
+                        // Auto-enable eraser mode when using stylus eraser tip
+                        if (!isUsingEraserTip) {
+                            wasEraserModeBeforeStylus = isEraserMode
+                            isUsingEraserTip = true
+                            isEraserMode = true
+                            Log.d(TAG, "Stylus eraser tip detected - auto-enabling eraser mode")
+                        }
+                        // Handle as eraser touch
+                        onDrawingStateListener?.onDrawingStarted()
+                        previousErasePoint = null
+                        handleErase(event.x, event.y)
+                        return true
+                    }
+                    MotionEvent.TOOL_TYPE_STYLUS -> {
+                        // Restore previous eraser mode when using stylus pen tip
+                        if (isUsingEraserTip) {
+                            wasEraserModeBeforeStylus?.let { previousMode ->
+                                isEraserMode = previousMode
+                            }
+                            isUsingEraserTip = false
+                            wasEraserModeBeforeStylus = null
+                            Log.d(TAG, "Stylus pen tip detected - restored previous mode")
+                        }
+                    }
+                }
+
+                // Notify drawing started
+                onDrawingStateListener?.onDrawingStarted()
 
                 val strokeId = inProgressStrokesView.startStroke(
                     event = event,
@@ -318,6 +470,12 @@ class AndroidXInkView @JvmOverloads constructor(
                     return false
                 }
 
+                // Record event for motion prediction
+                motionEventPredictor?.record(event)
+
+                // Get predicted motion for reduced latency
+                val predictedEvent = motionEventPredictor?.predict()
+
                 for (i in 0 until event.pointerCount) {
                     val pointerId = event.getPointerId(i)
                     val strokeId = pointerIdToStrokeId[pointerId] ?: continue
@@ -325,7 +483,7 @@ class AndroidXInkView @JvmOverloads constructor(
                         event = event,
                         pointerId = pointerId,
                         strokeId = strokeId,
-                        prediction = null
+                        prediction = predictedEvent
                     )
                 }
                 return true
@@ -341,6 +499,9 @@ class AndroidXInkView @JvmOverloads constructor(
                 )
                 primaryPointerId = MotionEvent.INVALID_POINTER_ID
                 isMultiTouchActive = false
+
+                // Notify drawing ended
+                onDrawingStateListener?.onDrawingEnded()
                 return true
             }
 
@@ -353,6 +514,9 @@ class AndroidXInkView @JvmOverloads constructor(
                 cancelAllStrokes()
                 primaryPointerId = MotionEvent.INVALID_POINTER_ID
                 isMultiTouchActive = false
+
+                // Notify drawing ended
+                onDrawingStateListener?.onDrawingEnded()
                 return true
             }
         }
@@ -369,6 +533,8 @@ class AndroidXInkView @JvmOverloads constructor(
                 previousErasePoint = null
                 // Request parent to not intercept while erasing
                 parent?.requestDisallowInterceptTouchEvent(true)
+                // Notify drawing started (erasing counts as active drawing)
+                onDrawingStateListener?.onDrawingStarted()
                 handleErase(event.x, event.y)
                 return true
             }
@@ -380,6 +546,8 @@ class AndroidXInkView @JvmOverloads constructor(
                     previousErasePoint = null
                     // Allow parent to intercept for pan/zoom
                     parent?.requestDisallowInterceptTouchEvent(false)
+                    // Notify drawing ended
+                    onDrawingStateListener?.onDrawingEnded()
                     return false
                 }
             }
@@ -390,6 +558,8 @@ class AndroidXInkView @JvmOverloads constructor(
                     previousErasePoint = null
                     // Allow parent to intercept for pan/zoom
                     parent?.requestDisallowInterceptTouchEvent(false)
+                    // Notify drawing ended
+                    onDrawingStateListener?.onDrawingEnded()
                     return false
                 }
                 handleErase(event.x, event.y)
@@ -399,6 +569,8 @@ class AndroidXInkView @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 previousErasePoint = null
                 isMultiTouchActive = false
+                // Notify drawing ended
+                onDrawingStateListener?.onDrawingEnded()
                 return true
             }
 
@@ -431,6 +603,26 @@ class AndroidXInkView @JvmOverloads constructor(
         pointerIdToStrokeId.clear()
     }
 
+    /**
+     * Cancel stroke for a specific pointer (used for palm rejection)
+     */
+    private fun cancelStrokeForPointer(pointerId: Int) {
+        val strokeId = pointerIdToStrokeId.remove(pointerId) ?: return
+        try {
+            val cancelEvent = MotionEvent.obtain(
+                System.currentTimeMillis(),
+                System.currentTimeMillis(),
+                MotionEvent.ACTION_CANCEL,
+                0f, 0f, 0
+            )
+            inProgressStrokesView.cancelStroke(strokeId, cancelEvent)
+            cancelEvent.recycle()
+            onDrawingStateListener?.onDrawingEnded()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error canceling stroke for pointer $pointerId: ${e.message}")
+        }
+    }
+
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         // Don't intercept if drawing is disabled
         if (!drawingEnabled) {
@@ -444,6 +636,42 @@ class AndroidXInkView @JvmOverloads constructor(
 
         // Intercept single touch for drawing
         return true
+    }
+
+    /**
+     * Handle stylus hover events to show brush preview cursor
+     */
+    override fun onHoverEvent(event: MotionEvent): Boolean {
+        if (!drawingEnabled) {
+            if (isHovering) {
+                isHovering = false
+                hoverX = -1f
+                hoverY = -1f
+                finishedStrokesView.invalidate()
+            }
+            return false
+        }
+
+        when (event.actionMasked) {
+            MotionEvent.ACTION_HOVER_ENTER,
+            MotionEvent.ACTION_HOVER_MOVE -> {
+                // Show brush cursor at hover position
+                hoverX = event.x
+                hoverY = event.y
+                isHovering = true
+                finishedStrokesView.invalidate()
+                return true
+            }
+            MotionEvent.ACTION_HOVER_EXIT -> {
+                // Hide brush cursor
+                isHovering = false
+                hoverX = -1f
+                hoverY = -1f
+                finishedStrokesView.invalidate()
+                return true
+            }
+        }
+        return super.onHoverEvent(event)
     }
 
     /**
@@ -547,21 +775,33 @@ class AndroidXInkView @JvmOverloads constructor(
     private inner class FinishedStrokesView(context: Context) : View(context) {
 
         private val identityMatrix = Matrix()
-        private var legacyStrokes: List<InkCanvasView.InkStroke> = emptyList()
+        private var legacyStrokes: MutableList<InkCanvasView.InkStroke> = mutableListOf()
 
         init {
             setWillNotDraw(false)
         }
 
         fun setLegacyStrokes(strokes: List<InkCanvasView.InkStroke>) {
-            legacyStrokes = strokes.toList()
+            legacyStrokes = strokes.toMutableList()
         }
 
         fun clearLegacyStrokes() {
-            legacyStrokes = emptyList()
+            legacyStrokes.clear()
         }
 
         fun hasLegacyStrokes(): Boolean = legacyStrokes.isNotEmpty()
+
+        /**
+         * Get legacy strokes for eraser hit-testing
+         */
+        fun getLegacyStrokes(): List<InkCanvasView.InkStroke> = legacyStrokes.toList()
+
+        /**
+         * Remove legacy strokes (used by eraser)
+         */
+        fun removeLegacyStrokes(strokesToRemove: List<InkCanvasView.InkStroke>) {
+            legacyStrokes.removeAll(strokesToRemove.toSet())
+        }
 
         fun setStrokes(strokes: List<Stroke>) {
             // This method triggers a re-render of the finished strokes
@@ -581,17 +821,34 @@ class AndroidXInkView @JvmOverloads constructor(
                 )
             }
 
-            // Draw legacy strokes (loaded from JSON)
+            // Draw legacy strokes (loaded from JSON) with proper blend mode for highlighter
             for (inkStroke in legacyStrokes) {
-                val paint = android.graphics.Paint().apply {
+                val paint = Paint().apply {
                     color = inkStroke.color
                     strokeWidth = inkStroke.strokeWidth
-                    style = android.graphics.Paint.Style.STROKE
-                    strokeCap = android.graphics.Paint.Cap.ROUND
-                    strokeJoin = android.graphics.Paint.Join.ROUND
+                    style = Paint.Style.STROKE
+                    strokeCap = Paint.Cap.ROUND
+                    strokeJoin = Paint.Join.ROUND
                     isAntiAlias = true
+
+                    // Detect highlighter by checking alpha < 255
+                    // Use MULTIPLY blend mode to prevent multiple passes from becoming opaque
+                    if (Color.alpha(inkStroke.color) < 255) {
+                        xfermode = PorterDuffXfermode(PorterDuff.Mode.MULTIPLY)
+                    }
                 }
                 canvas.drawPath(inkStroke.path, paint)
+            }
+
+            // Draw hover cursor when stylus is hovering
+            if (isHovering && hoverX >= 0 && hoverY >= 0) {
+                val cursorRadius = if (isEraserMode) eraserPadding else strokeWidth / 2 + 2f
+                hoverCursorPaint.color = if (isEraserMode) {
+                    Color.argb(128, 255, 0, 0) // Semi-transparent red for eraser
+                } else {
+                    Color.argb(128, Color.red(inkColor), Color.green(inkColor), Color.blue(inkColor))
+                }
+                canvas.drawCircle(hoverX, hoverY, cursorRadius, hoverCursorPaint)
             }
         }
     }

@@ -50,6 +50,7 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
     private boolean drawingEnabled = false;
     private boolean eraserMode = false;
     private InkCanvasView.OnInkChangeListener onInkChangeListener;
+    private AndroidXInkView.OnDrawingStateListener onDrawingStateListener;
 
     public PdfPagerAdapter(Context context, File pdfFile, boolean enableInk) throws IOException {
         this.context = context;
@@ -78,6 +79,10 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
         for (AndroidXInkView canvas : inkCanvasMap.values()) {
             canvas.setDrawingEnabled(enabled);
         }
+        // Also update zoom containers so they know when to allow single-finger pan
+        for (ZoomableFrameLayout container : zoomContainerMap.values()) {
+            container.setDrawingEnabled(enabled);
+        }
     }
 
     public void setBrushType(int type) {
@@ -104,6 +109,13 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
 
     public void setOnInkChangeListener(InkCanvasView.OnInkChangeListener listener) {
         this.onInkChangeListener = listener;
+    }
+
+    public void setOnDrawingStateListener(AndroidXInkView.OnDrawingStateListener listener) {
+        this.onDrawingStateListener = listener;
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
+            canvas.setOnDrawingStateListener(listener);
+        }
     }
 
     public List<InkCanvasView.InkStroke> getAllStrokes() {
@@ -258,6 +270,7 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
                 inkCanvas.setDrawingEnabled(drawingEnabled);
                 inkCanvas.setEraserMode(eraserMode);
                 inkCanvas.setOnInkChangeListenerJava(onInkChangeListener);
+                inkCanvas.setOnDrawingStateListener(onDrawingStateListener);
                 inkCanvasMap.put(position, inkCanvas);
             }
 
