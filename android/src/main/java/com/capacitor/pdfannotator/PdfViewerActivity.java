@@ -251,6 +251,8 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
         if (primaryColor != 0) {
             fabDraw.setBackgroundTintList(ColorStateList.valueOf(primaryColor));
         }
+        // Always set FAB icon to white for contrast
+        fabDraw.setImageTintList(ColorStateList.valueOf(Color.WHITE));
 
         // Setup FAB
         if (enableAnnotations && enableInk) {

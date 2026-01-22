@@ -15,6 +15,7 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            android:theme="@style/ToolbarThemeOverlay"
             app:titleTextColor="@android:color/white"
             app:navigationIconTint="@android:color/white"
             app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
@@ -153,6 +154,7 @@
         android:layout_margin="16dp"
         android:src="@drawable/ic_edit"
         app:backgroundTint="@color/primary_default"
+        app:tint="@android:color/white"
         app:fabSize="normal"
         app:layout_anchorGravity="bottom|end" />
 
