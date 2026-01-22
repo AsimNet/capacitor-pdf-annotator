@@ -21,7 +21,7 @@ android {
     namespace "com.capacitor.pdfannotator"
     compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35
     defaultConfig {
-        minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 35
+        minSdkVersion project.hasProperty('minSdkVersion') ? rootProject.ext.minSdkVersion : 31
         targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35
         versionCode 1
         versionName "1.0"
@@ -57,16 +57,16 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.2.0'
     implementation 'com.google.android.material:material:1.12.0'
 
-    // AndroidX PDF Viewer
-    implementation 'androidx.pdf:pdf-viewer-fragment:1.0.0-alpha02'
+    // AndroidX PDF Viewer (supports Android 12+ with SDK extensions)
+    implementation 'androidx.pdf:pdf-viewer-fragment:1.0.0-alpha12'
 
-    // AndroidX Ink API
-    implementation 'androidx.ink:ink-authoring:1.0.0-alpha01'
-    implementation 'androidx.ink:ink-brush:1.0.0-alpha01'
-    implementation 'androidx.ink:ink-geometry:1.0.0-alpha01'
-    implementation 'androidx.ink:ink-nativeloader:1.0.0-alpha01'
-    implementation 'androidx.ink:ink-rendering:1.0.0-alpha01'
-    implementation 'androidx.ink:ink-strokes:1.0.0-alpha01'
+    // AndroidX Ink API (stable)
+    implementation 'androidx.ink:ink-authoring:1.0.0'
+    implementation 'androidx.ink:ink-brush:1.0.0'
+    implementation 'androidx.ink:ink-geometry:1.0.0'
+    implementation 'androidx.ink:ink-nativeloader:1.0.0'
+    implementation 'androidx.ink:ink-rendering:1.0.0'
+    implementation 'androidx.ink:ink-strokes:1.0.0'
 
     // Lifecycle
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'
