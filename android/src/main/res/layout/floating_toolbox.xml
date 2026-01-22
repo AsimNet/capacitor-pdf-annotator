@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/floatingToolbox"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_floating_toolbox"
+    android:elevation="8dp"
+    android:orientation="vertical"
+    android:padding="8dp">
+
+    <!-- Brush Controls Section -->
+    <ImageButton
+        android:id="@+id/btnBrush"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/brush"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_brush"
+        app:tint="@color/toolbox_icon_color" />
+
+    <ImageButton
+        android:id="@+id/btnColor"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/color"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_palette"
+        app:tint="@color/toolbox_icon_color" />
+
+    <ImageButton
+        android:id="@+id/btnSize"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/brush_size"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_line_weight"
+        app:tint="@color/toolbox_icon_color" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="48dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginVertical="8dp"
+        android:background="@color/divider_color" />
+
+    <!-- History Controls Section -->
+    <ImageButton
+        android:id="@+id/btnUndo"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/undo"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_undo"
+        app:tint="@color/toolbox_icon_color" />
+
+    <ImageButton
+        android:id="@+id/btnRedo"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/redo"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_redo"
+        app:tint="@color/toolbox_icon_color" />
+
+    <ImageButton
+        android:id="@+id/btnEraser"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/eraser"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_eraser"
+        app:tint="@color/toolbox_icon_color" />
+
+    <ImageButton
+        android:id="@+id/btnClear"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/clear"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_clear_all"
+        app:tint="@color/toolbox_icon_color" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="48dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginVertical="8dp"
+        android:background="@color/divider_color" />
+
+    <!-- Close drawing mode button -->
+    <ImageButton
+        android:id="@+id/btnClose"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/exit_draw_mode"
+        android:padding="12dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_close"
+        app:tint="@color/toolbox_icon_color" />
+
+</LinearLayout>

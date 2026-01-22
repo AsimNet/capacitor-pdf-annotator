@@ -1,19 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.capacitor.pdfannotator.ZoomableFrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/zoomableContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <ImageView
-        android:id="@+id/pageImage"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitCenter"
-        android:contentDescription="PDF Page" />
-
     <FrameLayout
-        android:id="@+id/inkContainer"
+        android:id="@+id/contentContainer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
+
+        <ImageView
+            android:id="@+id/pageImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="fitCenter"
+            android:contentDescription="@string/pdf_viewer_title" />
+
+        <FrameLayout
+            android:id="@+id/inkContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </FrameLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -22,4 +31,4 @@
         android:layout_gravity="center"
         android:visibility="gone" />
 
-</FrameLayout>
+</com.capacitor.pdfannotator.ZoomableFrameLayout>

@@ -3,12 +3,14 @@ package com.capacitor.pdfannotator;
 import android.content.Intent;
 import android.net.Uri;
 import androidx.activity.result.ActivityResult;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import org.json.JSONException;
 
 @CapacitorPlugin(name = "PdfAnnotator")
 public class PdfAnnotatorPlugin extends Plugin {
@@ -34,6 +36,27 @@ public class PdfAnnotatorPlugin extends Plugin {
         boolean enableTextSelection = call.getBoolean("enableTextSelection", true);
         boolean enableSearch = call.getBoolean("enableSearch", true);
 
+        // Get theme colors
+        String primaryColor = call.getString("primaryColor");
+        String toolbarColor = call.getString("toolbarColor");
+        String statusBarColor = call.getString("statusBarColor");
+
+        // Get color palette
+        JSArray colorPaletteArray = call.getArray("colorPalette");
+        String[] colorPalette = null;
+        if (colorPaletteArray != null) {
+            try {
+                int length = colorPaletteArray.length();
+                colorPalette = new String[length];
+                for (int i = 0; i < length; i++) {
+                    colorPalette[i] = colorPaletteArray.getString(i);
+                }
+            } catch (JSONException e) {
+                // Ignore invalid palette, use defaults
+                colorPalette = null;
+            }
+        }
+
         savedCall = call;
 
         // Convert URL to Uri
@@ -57,6 +80,22 @@ public class PdfAnnotatorPlugin extends Plugin {
         intent.putExtra(PdfViewerActivity.EXTRA_TITLE, title);
         intent.putExtra(PdfViewerActivity.EXTRA_ENABLE_TEXT_SELECTION, enableTextSelection);
         intent.putExtra(PdfViewerActivity.EXTRA_ENABLE_SEARCH, enableSearch);
+
+        // Add theme colors if provided
+        if (primaryColor != null) {
+            intent.putExtra(PdfViewerActivity.EXTRA_PRIMARY_COLOR, primaryColor);
+        }
+        if (toolbarColor != null) {
+            intent.putExtra(PdfViewerActivity.EXTRA_TOOLBAR_COLOR, toolbarColor);
+        }
+        if (statusBarColor != null) {
+            intent.putExtra(PdfViewerActivity.EXTRA_STATUS_BAR_COLOR, statusBarColor);
+        }
+
+        // Add color palette if provided
+        if (colorPalette != null) {
+            intent.putExtra(PdfViewerActivity.EXTRA_COLOR_PALETTE, colorPalette);
+        }
 
         startActivityForResult(call, intent, "pdfViewerResult");
     }

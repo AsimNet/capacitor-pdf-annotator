@@ -2,6 +2,8 @@ package com.capacitor.pdfannotator;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.pdf.PdfRenderer;
+import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,10 +15,8 @@ import android.widget.ProgressBar;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.tom_roush.pdfbox.rendering.ImageType;
-import com.tom_roush.pdfbox.rendering.PDFRenderer;
-import com.tom_roush.pdfbox.rendering.RenderDestination;
-
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,50 +24,82 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * PDF page adapter with AndroidX Ink API annotation support.
+ * Uses native Android PdfRenderer for high-quality PDF display
+ * and AndroidX Ink for low-latency stylus rendering.
+ */
 public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageViewHolder> {
 
     private static final String TAG = "PdfPagerAdapter";
-    private static final float RENDER_SCALE = 2.0f;
+    private static final float RENDER_SCALE = 2.5f;
 
     private final Context context;
-    private final PDFRenderer pdfRenderer;
+    private final PdfRenderer pdfRenderer;
+    private final ParcelFileDescriptor fileDescriptor;
     private final int pageCount;
     private final boolean enableInk;
     private final ExecutorService executor = Executors.newFixedThreadPool(2);
     private final Map<Integer, Bitmap> bitmapCache = new HashMap<>();
-    private final Map<Integer, InkCanvasView> inkCanvasMap = new HashMap<>();
+    private final Map<Integer, AndroidXInkView> inkCanvasMap = new HashMap<>();
+    private final Map<Integer, ZoomableFrameLayout> zoomContainerMap = new HashMap<>();
 
     private int inkColor;
     private float inkWidth;
+    private int brushType = AndroidXInkView.BRUSH_PRESSURE_PEN;
     private boolean drawingEnabled = false;
+    private boolean eraserMode = false;
     private InkCanvasView.OnInkChangeListener onInkChangeListener;
 
-    public PdfPagerAdapter(Context context, PDFRenderer pdfRenderer, int pageCount, boolean enableInk) {
+    public PdfPagerAdapter(Context context, File pdfFile, boolean enableInk) throws IOException {
         this.context = context;
-        this.pdfRenderer = pdfRenderer;
-        this.pageCount = pageCount;
+        this.fileDescriptor = ParcelFileDescriptor.open(pdfFile, ParcelFileDescriptor.MODE_READ_ONLY);
+        this.pdfRenderer = new PdfRenderer(fileDescriptor);
+        this.pageCount = pdfRenderer.getPageCount();
         this.enableInk = enableInk;
     }
 
     public void setInkColor(int color) {
         this.inkColor = color;
-        for (InkCanvasView canvas : inkCanvasMap.values()) {
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
             canvas.setInkColor(color);
         }
     }
 
     public void setInkWidth(float width) {
         this.inkWidth = width;
-        for (InkCanvasView canvas : inkCanvasMap.values()) {
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
             canvas.setStrokeWidth(width);
         }
     }
 
     public void setDrawingEnabled(boolean enabled) {
         this.drawingEnabled = enabled;
-        for (InkCanvasView canvas : inkCanvasMap.values()) {
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
             canvas.setDrawingEnabled(enabled);
         }
+    }
+
+    public void setBrushType(int type) {
+        this.brushType = type;
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
+            canvas.setBrushTypeById(type);
+        }
+    }
+
+    public int getBrushType() {
+        return brushType;
+    }
+
+    public void setEraserMode(boolean enabled) {
+        this.eraserMode = enabled;
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
+            canvas.setEraserMode(enabled);
+        }
+    }
+
+    public boolean isEraserMode() {
+        return eraserMode;
     }
 
     public void setOnInkChangeListener(InkCanvasView.OnInkChangeListener listener) {
@@ -76,17 +108,114 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
 
     public List<InkCanvasView.InkStroke> getAllStrokes() {
         List<InkCanvasView.InkStroke> allStrokes = new ArrayList<>();
-        for (InkCanvasView canvas : inkCanvasMap.values()) {
-            allStrokes.addAll(canvas.getStrokes());
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
+            allStrokes.addAll(canvas.getStrokesAsInkStrokes());
         }
         return allStrokes;
     }
 
+    /**
+     * Get strokes organized by page index for saving.
+     */
+    public Map<Integer, List<InkCanvasView.InkStroke>> getStrokesByPage() {
+        Map<Integer, List<InkCanvasView.InkStroke>> strokesByPage = new HashMap<>();
+        for (Map.Entry<Integer, AndroidXInkView> entry : inkCanvasMap.entrySet()) {
+            List<InkCanvasView.InkStroke> strokes = entry.getValue().getStrokesAsInkStrokes();
+            if (!strokes.isEmpty()) {
+                strokesByPage.put(entry.getKey(), strokes);
+            }
+        }
+        return strokesByPage;
+    }
+
+    /**
+     * Load strokes for pages from saved data.
+     */
+    public void loadStrokes(Map<Integer, List<InkCanvasView.InkStroke>> strokesByPage) {
+        for (Map.Entry<Integer, List<InkCanvasView.InkStroke>> entry : strokesByPage.entrySet()) {
+            int pageIndex = entry.getKey();
+            List<InkCanvasView.InkStroke> strokes = entry.getValue();
+
+            // Get or create canvas for this page
+            AndroidXInkView canvas = inkCanvasMap.get(pageIndex);
+            if (canvas == null) {
+                canvas = new AndroidXInkView(context);
+                canvas.setPageIndex(pageIndex);
+                canvas.setInkColor(inkColor);
+                canvas.setStrokeWidth(inkWidth);
+                canvas.setBrushTypeById(brushType);
+                canvas.setDrawingEnabled(drawingEnabled);
+                canvas.setOnInkChangeListenerJava(onInkChangeListener);
+                inkCanvasMap.put(pageIndex, canvas);
+            }
+
+            // Load strokes into canvas
+            canvas.loadStrokesFromInkStrokes(strokes);
+        }
+    }
+
+    /**
+     * Check if any page has strokes.
+     */
+    public boolean hasAnyStrokes() {
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
+            if (canvas.hasStrokes()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void clearPage(int page) {
-        InkCanvasView canvas = inkCanvasMap.get(page);
+        AndroidXInkView canvas = inkCanvasMap.get(page);
         if (canvas != null) {
             canvas.clear();
         }
+    }
+
+    /**
+     * Clear all strokes from all pages.
+     */
+    public void clearAllPages() {
+        for (AndroidXInkView canvas : inkCanvasMap.values()) {
+            canvas.clear();
+        }
+    }
+
+    /**
+     * Undo the last stroke on a specific page.
+     */
+    public void undoPage(int page) {
+        AndroidXInkView canvas = inkCanvasMap.get(page);
+        if (canvas != null) {
+            canvas.undo();
+        }
+    }
+
+    /**
+     * Redo the last undone stroke on a specific page.
+     */
+    public void redoPage(int page) {
+        AndroidXInkView canvas = inkCanvasMap.get(page);
+        if (canvas != null) {
+            canvas.redo();
+        }
+    }
+
+    /**
+     * Check if undo is available on a specific page.
+     */
+    public boolean canUndoPage(int page) {
+        AndroidXInkView canvas = inkCanvasMap.get(page);
+        return canvas != null && canvas.canUndo();
+    }
+
+    /**
+     * Check if redo is available on a specific page.
+     */
+    public boolean canRedoPage(int page) {
+        AndroidXInkView canvas = inkCanvasMap.get(page);
+        return canvas != null && canvas.canRedo();
     }
 
     @NonNull
@@ -101,6 +230,12 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
         holder.progressBar.setVisibility(View.VISIBLE);
         holder.imageView.setImageBitmap(null);
 
+        // Store zoom container reference
+        zoomContainerMap.put(position, holder.zoomContainer);
+
+        // Reset zoom when page is bound
+        holder.zoomContainer.resetZoom();
+
         // Check cache first
         Bitmap cached = bitmapCache.get(position);
         if (cached != null && !cached.isRecycled()) {
@@ -111,15 +246,18 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
             renderPage(position, holder);
         }
 
-        // Setup ink canvas
+        // Setup ink canvas using AndroidX Ink API for low-latency stylus input
         if (enableInk) {
-            InkCanvasView inkCanvas = inkCanvasMap.get(position);
+            AndroidXInkView inkCanvas = inkCanvasMap.get(position);
             if (inkCanvas == null) {
-                inkCanvas = new InkCanvasView(context, position);
+                inkCanvas = new AndroidXInkView(context);
+                inkCanvas.setPageIndex(position);
                 inkCanvas.setInkColor(inkColor);
                 inkCanvas.setStrokeWidth(inkWidth);
+                inkCanvas.setBrushTypeById(brushType);
                 inkCanvas.setDrawingEnabled(drawingEnabled);
-                inkCanvas.setOnInkChangeListener(onInkChangeListener);
+                inkCanvas.setEraserMode(eraserMode);
+                inkCanvas.setOnInkChangeListenerJava(onInkChangeListener);
                 inkCanvasMap.put(position, inkCanvas);
             }
 
@@ -140,8 +278,20 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
         executor.execute(() -> {
             try {
                 synchronized (pdfRenderer) {
-                    pdfRenderer.setDefaultDestination(RenderDestination.VIEW);
-                    Bitmap bitmap = pdfRenderer.renderImage(position, RENDER_SCALE, ImageType.RGB);
+                    PdfRenderer.Page page = pdfRenderer.openPage(position);
+
+                    // Calculate bitmap size with scale
+                    int width = (int) (page.getWidth() * RENDER_SCALE);
+                    int height = (int) (page.getHeight() * RENDER_SCALE);
+
+                    Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                    // Fill with white background
+                    bitmap.eraseColor(android.graphics.Color.WHITE);
+
+                    // Render the page
+                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                    page.close();
+
                     bitmapCache.put(position, bitmap);
 
                     holder.imageView.post(() -> {
@@ -169,6 +319,10 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
         // Don't clear ink canvas - keep strokes
     }
 
+    public int getPageCount() {
+        return pageCount;
+    }
+
     public void cleanup() {
         executor.shutdown();
         for (Bitmap bitmap : bitmapCache.values()) {
@@ -177,15 +331,48 @@ public class PdfPagerAdapter extends RecyclerView.Adapter<PdfPagerAdapter.PageVi
             }
         }
         bitmapCache.clear();
+
+        // Close native PDF renderer
+        if (pdfRenderer != null) {
+            pdfRenderer.close();
+        }
+        if (fileDescriptor != null) {
+            try {
+                fileDescriptor.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing file descriptor", e);
+            }
+        }
+    }
+
+    /**
+     * Reset zoom on all pages
+     */
+    public void resetAllZoom() {
+        for (ZoomableFrameLayout container : zoomContainerMap.values()) {
+            container.resetZoom();
+        }
+    }
+
+    /**
+     * Reset zoom on a specific page
+     */
+    public void resetZoom(int page) {
+        ZoomableFrameLayout container = zoomContainerMap.get(page);
+        if (container != null) {
+            container.resetZoom();
+        }
     }
 
     static class PageViewHolder extends RecyclerView.ViewHolder {
+        ZoomableFrameLayout zoomContainer;
         ImageView imageView;
         FrameLayout inkContainer;
         ProgressBar progressBar;
 
         PageViewHolder(@NonNull View itemView) {
             super(itemView);
+            zoomContainer = (ZoomableFrameLayout) itemView;
             imageView = itemView.findViewById(R.id.pageImage);
             inkContainer = itemView.findViewById(R.id.inkContainer);
             progressBar = itemView.findViewById(R.id.progressBar);

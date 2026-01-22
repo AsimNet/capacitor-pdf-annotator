@@ -10,4 +10,17 @@
     <color name="green">#4CAF50</color>
     <color name="yellow">#FFEB3B</color>
     <color name="magenta">#E91E63</color>
+    <color name="gray">#9E9E9E</color>
+    <color name="cyan">#00BCD4</color>
+    <color name="orange">#FF9800</color>
+    <color name="purple">#9C27B0</color>
+
+    <!-- Toolbox colors - Cahier/Material 3 style -->
+    <color name="toolbox_background">#E7E0EC</color>
+    <color name="toolbox_background_dark">#49454F</color>
+    <color name="divider_color">#CAC4D0</color>
+    <color name="tool_active">#D0BCFF</color>
+    <color name="tool_active_dark">#4F378B</color>
+    <color name="toolbox_icon_color">#1D1B20</color>
+    <color name="toolbox_icon_color_dark">#E6E0E9</color>
 </resources>

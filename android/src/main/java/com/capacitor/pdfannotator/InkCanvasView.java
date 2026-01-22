@@ -26,6 +26,7 @@ public class InkCanvasView extends View {
 
     // Drawing state
     private final List<InkStroke> strokes = new ArrayList<>();
+    private final List<InkStroke> undoStack = new ArrayList<>();
     private InkStroke currentStroke = null;
     private Path currentPath = new Path();
     private Paint currentPaint;
@@ -117,9 +118,19 @@ public class InkCanvasView extends View {
     }
 
     public void clear() {
+        undoStack.addAll(strokes); // Allow redo after clear
         strokes.clear();
         invalidate();
         notifyInkChanged();
+    }
+
+    /**
+     * Load strokes from saved data.
+     */
+    public void loadStrokes(List<InkStroke> savedStrokes) {
+        strokes.clear();
+        strokes.addAll(savedStrokes);
+        invalidate();
     }
 
     @Override
@@ -202,6 +213,7 @@ public class InkCanvasView extends View {
             // Copy path to stroke
             currentStroke.path = new Path(currentPath);
             strokes.add(currentStroke);
+            undoStack.clear(); // Clear redo stack when new stroke is added
             notifyInkChanged();
         }
 
@@ -221,10 +233,37 @@ public class InkCanvasView extends View {
      */
     public void undo() {
         if (!strokes.isEmpty()) {
-            strokes.remove(strokes.size() - 1);
+            InkStroke lastStroke = strokes.remove(strokes.size() - 1);
+            undoStack.add(lastStroke);
             invalidate();
             notifyInkChanged();
         }
+    }
+
+    /**
+     * Redo the last undone stroke
+     */
+    public void redo() {
+        if (!undoStack.isEmpty()) {
+            InkStroke stroke = undoStack.remove(undoStack.size() - 1);
+            strokes.add(stroke);
+            invalidate();
+            notifyInkChanged();
+        }
+    }
+
+    /**
+     * Check if undo is available
+     */
+    public boolean canUndo() {
+        return !strokes.isEmpty();
+    }
+
+    /**
+     * Check if redo is available
+     */
+    public boolean canRedo() {
+        return !undoStack.isEmpty();
     }
 
     /**

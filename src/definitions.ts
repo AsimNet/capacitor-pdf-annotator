@@ -91,6 +91,35 @@ export interface OpenPdfOptions {
    * @default true
    */
   enableSearch?: boolean;
+
+  /**
+   * Primary color in hex format for theming (e.g., FABs, toolbar)
+   * @example '#1C8354'
+   */
+  primaryColor?: string;
+
+  /**
+   * Toolbar background color in hex format
+   * Falls back to primaryColor if not specified
+   * @example '#1C8354'
+   */
+  toolbarColor?: string;
+
+  /**
+   * Status bar color in hex format (Android only)
+   * Falls back to a darker shade of primaryColor if not specified
+   * @example '#166A45'
+   */
+  statusBarColor?: string;
+
+  /**
+   * Custom color palette for the ink color picker (Android only)
+   * Array of hex color strings (max 9 colors)
+   * Order: Black, Red, Blue, Green, Yellow, Pink, Gray, Cyan, White
+   * @default Material Design colors
+   * @example ['#000000', '#F44336', '#2196F3', '#4CAF50', '#FFEB3B', '#E91E63', '#9E9E9E', '#00BCD4', '#FFFFFF']
+   */
+  colorPalette?: string[];
 }
 
 export interface OpenPdfResult {

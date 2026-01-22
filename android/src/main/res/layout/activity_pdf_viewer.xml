@@ -15,6 +15,8 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            app:titleTextColor="@android:color/white"
+            app:navigationIconTint="@android:color/white"
             app:popupTheme="@style/ThemeOverlay.AppCompat.Light" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -26,88 +28,123 @@
         android:orientation="horizontal"
         app:layout_behavior="@string/appbar_scrolling_view_behavior" />
 
-    <!-- Color Picker -->
+    <!-- Floating Toolbox (Cahier-style) -->
+    <include
+        android:id="@+id/floatingToolbox"
+        layout="@layout/floating_toolbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="8dp"
+        android:visibility="gone" />
+
+    <!-- Color Picker Dialog -->
     <LinearLayout
         android:id="@+id/colorPicker"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="100dp"
+        android:layout_gravity="center"
         android:background="@drawable/bg_color_picker"
-        android:elevation="8dp"
-        android:orientation="horizontal"
-        android:padding="8dp"
+        android:elevation="12dp"
+        android:orientation="vertical"
+        android:padding="16dp"
         android:visibility="gone">
 
-        <View
-            android:id="@+id/colorBlack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_margin="4dp"
-            android:background="@drawable/color_circle_black" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/select_color"
+            android:textAppearance="?attr/textAppearanceHeadlineSmall" />
 
-        <View
-            android:id="@+id/colorRed"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_margin="4dp"
-            android:background="@drawable/color_circle_red" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
 
-        <View
-            android:id="@+id/colorBlue"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_margin="4dp"
-            android:background="@drawable/color_circle_blue" />
+            <View
+                android:id="@+id/colorBlack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_black" />
 
-        <View
-            android:id="@+id/colorGreen"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_margin="4dp"
-            android:background="@drawable/color_circle_green" />
+            <View
+                android:id="@+id/colorRed"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_red" />
 
-        <View
-            android:id="@+id/colorYellow"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_margin="4dp"
-            android:background="@drawable/color_circle_yellow" />
+            <View
+                android:id="@+id/colorBlue"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_blue" />
 
-        <View
-            android:id="@+id/colorMagenta"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_margin="4dp"
-            android:background="@drawable/color_circle_magenta" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/colorGreen"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_green" />
+
+            <View
+                android:id="@+id/colorYellow"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_yellow" />
+
+            <View
+                android:id="@+id/colorMagenta"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_magenta" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <View
+                android:id="@+id/colorGray"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_gray" />
+
+            <View
+                android:id="@+id/colorCyan"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_cyan" />
+
+            <View
+                android:id="@+id/colorWhite"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_margin="4dp"
+                android:background="@drawable/color_circle_white" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
-    <!-- FABs -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabSave"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:layout_marginBottom="160dp"
-        android:src="@drawable/ic_save"
-        android:visibility="gone"
-        app:fabSize="normal"
-        app:layout_anchorGravity="bottom|end" />
-
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabColor"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:layout_marginBottom="88dp"
-        android:src="@drawable/ic_palette"
-        android:visibility="gone"
-        app:fabSize="mini"
-        app:layout_anchorGravity="bottom|end" />
-
+    <!-- FAB to toggle drawing mode -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabDraw"
         android:layout_width="wrap_content"

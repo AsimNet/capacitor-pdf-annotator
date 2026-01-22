@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_floating_toolbox"
+    android:elevation="8dp"
+    android:minWidth="200dp"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:text="@string/select_brush"
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:textColor="@color/toolbox_icon_color" />
+
+    <LinearLayout
+        android:id="@+id/brushPressurePen"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_stylus_pen"
+            app:tint="@color/toolbox_icon_color" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="@string/pressure_pen"
+            android:textColor="@color/toolbox_icon_color" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/brushMarker"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_marker"
+            app:tint="@color/toolbox_icon_color" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="@string/marker"
+            android:textColor="@color/toolbox_icon_color" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/brushHighlighter"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_highlighter"
+            app:tint="@color/toolbox_icon_color" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="@string/highlighter"
+            android:textColor="@color/toolbox_icon_color" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/brushDashedLine"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="8dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_dashed_line"
+            app:tint="@color/toolbox_icon_color" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="@string/dashed_line"
+            android:textColor="@color/toolbox_icon_color" />
+    </LinearLayout>
+
+</LinearLayout>

@@ -19,4 +19,38 @@
     <string name="loading">Loading PDF…</string>
     <string name="error_loading_pdf">Error loading PDF</string>
     <string name="page_indicator">Page %1$d of %2$d</string>
+    <string name="drawing_mode_enabled">Drawing mode enabled</string>
+    <string name="drawing_mode_disabled">Drawing mode disabled</string>
+    <string name="no_changes_to_save">No changes to save</string>
+    <string name="annotations_saved">Annotations saved</string>
+    <string name="error_saving">Error saving annotations</string>
+    <string name="annotations_cleared">All annotations cleared</string>
+
+    <!-- Toolbox strings -->
+    <string name="brush">Brush</string>
+    <string name="color">Color</string>
+    <string name="brush_size">Brush Size</string>
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
+    <string name="eraser">Eraser</string>
+    <string name="clear">Clear</string>
+    <string name="clear_all_annotations">Are you sure you want to clear all annotations?</string>
+    <string name="save">Save</string>
+    <string name="exit_draw_mode">Exit Drawing Mode</string>
+    <string name="select_color">Select Color</string>
+    <string name="select_brush">Select Brush</string>
+    <string name="select_size">Select Size</string>
+    <string name="dismiss">Dismiss</string>
+
+    <!-- Brush types -->
+    <string name="pressure_pen">Pressure Pen</string>
+    <string name="marker">Marker</string>
+    <string name="highlighter">Highlighter</string>
+    <string name="dashed_line">Dashed Line</string>
+
+    <!-- Sizes -->
+    <string name="size_small">Small (5px)</string>
+    <string name="size_medium">Medium (10px)</string>
+    <string name="size_large">Large (15px)</string>
+    <string name="size_xlarge">Extra Large (20px)</string>
 </resources>
