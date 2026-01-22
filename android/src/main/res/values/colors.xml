@@ -17,6 +17,19 @@
     <color name="orange">#FF9800</color>
     <color name="purple">#9C27B0</color>
 
+    <!-- Toolbar colors (overridden in values-night for dark mode) -->
+    <color name="toolbar_background">@color/colorPrimary</color>
+    <color name="toolbar_text">#FFFFFF</color>
+
+    <!-- Popup menu colors (overridden in values-night for dark mode) -->
+    <color name="popup_background">#FFFFFF</color>
+    <color name="popup_text">#212121</color>
+
+    <!-- Dialog/color picker colors (overridden in values-night for dark mode) -->
+    <color name="dialog_background">#FFFFFF</color>
+    <color name="dialog_stroke">#E0E0E0</color>
+    <color name="dialog_text">#212121</color>
+
     <!-- Toolbox colors - Cahier/Material 3 style -->
     <color name="toolbox_background">#E7E0EC</color>
     <color name="toolbox_background_dark">#49454F</color>

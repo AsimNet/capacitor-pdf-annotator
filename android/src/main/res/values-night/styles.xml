@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark mode toolbar popup theme -->
+    <style name="ToolbarPopupTheme" parent="ThemeOverlay.MaterialComponents.Dark">
+        <item name="android:colorBackground">@color/popup_background</item>
+        <item name="android:textColorPrimary">@color/popup_text</item>
+        <item name="android:textColorSecondary">@color/popup_text</item>
+    </style>
+</resources>

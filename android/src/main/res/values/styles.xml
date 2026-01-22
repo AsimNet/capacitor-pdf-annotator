@@ -6,6 +6,9 @@
         <item name="colorAccent">@color/colorAccent</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
+        <!-- Popup menu styling -->
+        <item name="popupMenuStyle">@style/PopupMenuStyle</item>
+        <item name="actionOverflowMenuStyle">@style/PopupMenuStyle</item>
     </style>
 
     <!-- Toolbar style with white icons -->
@@ -19,5 +22,17 @@
         <item name="colorControlNormal">@android:color/white</item>
         <item name="android:textColorPrimary">@android:color/white</item>
         <item name="android:textColorSecondary">@android:color/white</item>
+    </style>
+
+    <!-- Popup menu style for overflow menu (supports dark mode) -->
+    <style name="PopupMenuStyle" parent="Widget.MaterialComponents.PopupMenu">
+        <item name="android:popupBackground">@color/popup_background</item>
+    </style>
+
+    <!-- Toolbar popup theme overlay (supports dark mode) -->
+    <style name="ToolbarPopupTheme" parent="ThemeOverlay.MaterialComponents.Light">
+        <item name="android:colorBackground">@color/popup_background</item>
+        <item name="android:textColorPrimary">@color/popup_text</item>
+        <item name="android:textColorSecondary">@color/popup_text</item>
     </style>
 </resources>
