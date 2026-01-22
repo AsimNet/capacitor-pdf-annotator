@@ -3,6 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/capacitor-pdf-annotator.svg)](https://www.npmjs.com/package/capacitor-pdf-annotator)
 [![npm downloads](https://img.shields.io/npm/dm/capacitor-pdf-annotator.svg)](https://www.npmjs.com/package/capacitor-pdf-annotator)
 [![License](https://img.shields.io/npm/l/capacitor-pdf-annotator.svg)](https://github.com/AsimNet/capacitor-pdf-annotator/blob/main/LICENSE)
+[![Ko-Fi](https://img.shields.io/badge/Ko--fi-Support%20Me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/asimnet)
 
 A Capacitor plugin for viewing and annotating PDF documents with stylus/pen support on iOS and Android.
 
@@ -236,6 +237,12 @@ Add to `Info.plist` if loading files from specific locations:
 ## Localization
 
 The plugin supports both English and Arabic. Language is automatically detected from device settings.
+
+## Support
+
+If you find this plugin helpful, consider supporting the development:
+
+[![Ko-Fi](https://img.shields.io/badge/Ko--fi-Support%20Me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/asimnet)
 
 ## License
 
