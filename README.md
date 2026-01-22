@@ -6,14 +6,31 @@
 
 A Capacitor plugin for viewing and annotating PDF documents with stylus/pen support on iOS and Android.
 
+## Screenshots
+
+### Android
+<p align="center">
+  <img src="screenshots/android/choose_color.png" width="250" alt="Color Picker" />
+  <img src="screenshots/android/choose_brush.png" width="250" alt="Brush Selection" />
+</p>
+
+### iOS
+<p align="center">
+  <img src="screenshots/ios/pencil_kit.png" width="250" alt="PencilKit Integration" />
+</p>
+
 ## Features
 
 - **PDF Viewing**: Native PDF rendering on both platforms
-- **Ink Annotations**: Draw with stylus or finger
-- **Multiple Colors**: Red, Blue, Green, Yellow, Magenta, and Black ink colors
+- **Ink Annotations**: Draw with stylus or finger with pressure sensitivity
+- **Multiple Brush Types**: Pressure Pen, Marker, Highlighter, and Dashed Line
+- **Multiple Colors**: Customizable color palette with 9 color options
 - **Adjustable Stroke Width**: Customize pen thickness
+- **Dark Mode Support**: Automatic dark mode for toolbar and dialogs
+- **Zoom & Pan**: Smooth zoom and pan gestures with improved UX
 - **Auto-Save**: Annotations are automatically saved to the PDF
 - **Undo/Redo**: Full undo/redo support for annotations
+- **Theming**: Customize primary color, toolbar color, and status bar color
 - **Bilingual**: Supports English and Arabic (RTL)
 
 ## Platforms
@@ -50,17 +67,44 @@ await PdfAnnotator.openPdf({
 });
 ```
 
-### With Annotations Enabled
+### With Annotations and Theming
 
 ```typescript
 import { PdfAnnotator } from 'capacitor-pdf-annotator';
 
 await PdfAnnotator.openPdf({
   url: 'file:///path/to/document.pdf',
+  title: 'My Document',
   enableAnnotations: true,
   enableInk: true,
   inkColor: '#2196F3',  // Blue
-  inkWidth: 3.0
+  inkWidth: 3.0,
+  primaryColor: '#1C8354',  // Green theme
+  toolbarColor: '#1C8354',
+  initialPage: 0
+});
+```
+
+### With Custom Color Palette
+
+```typescript
+import { PdfAnnotator } from 'capacitor-pdf-annotator';
+
+await PdfAnnotator.openPdf({
+  url: 'file:///path/to/document.pdf',
+  enableInk: true,
+  // Custom 9-color palette (Android only)
+  colorPalette: [
+    '#000000', // Black
+    '#F44336', // Red
+    '#2196F3', // Blue
+    '#4CAF50', // Green
+    '#FFEB3B', // Yellow
+    '#E91E63', // Pink
+    '#9E9E9E', // Gray
+    '#00BCD4', // Cyan
+    '#FFFFFF'  // White
+  ]
 });
 ```
 
@@ -70,9 +114,9 @@ await PdfAnnotator.openPdf({
 import { PdfAnnotator } from 'capacitor-pdf-annotator';
 
 const result = await PdfAnnotator.isInkSupported();
-if (result.supported) {
-  console.log('Ink annotations are supported!');
-}
+console.log('Ink supported:', result.supported);
+console.log('Stylus connected:', result.stylusConnected);
+console.log('Low-latency ink:', result.lowLatencyInk); // Android only
 ```
 
 ### Listen for Events
@@ -82,15 +126,18 @@ import { PdfAnnotator } from 'capacitor-pdf-annotator';
 
 // Listen for save events
 PdfAnnotator.addListener('pdfSaved', (event) => {
-  console.log('PDF saved:', event.url);
-  console.log('Has annotations:', event.hasAnnotations);
+  console.log('PDF saved:', event.path);
+  console.log('Save type:', event.type); // 'updated' or 'copy'
 });
 
 // Listen for annotation events
 PdfAnnotator.addListener('annotationAdded', (event) => {
-  console.log('Annotation added on page:', event.pageIndex);
-  console.log('Annotation type:', event.type);
+  console.log('Annotation type:', event.type); // 'ink', 'text', or 'highlight'
+  console.log('Page:', event.page);
 });
+
+// Clean up listeners when done
+await PdfAnnotator.removeAllListeners();
 ```
 
 ## API
@@ -107,13 +154,61 @@ Opens a PDF document for viewing and annotation.
 | `enableInk` | `boolean` | `true` | Enable ink/drawing tools |
 | `inkColor` | `string` | `'#000000'` | Default ink color (hex) |
 | `inkWidth` | `number` | `2.0` | Default ink stroke width |
-| `autoSave` | `boolean` | `true` | Auto-save annotations |
+| `initialPage` | `number` | `0` | Initial page to display (0-indexed) |
+| `enableTextSelection` | `boolean` | `true` | Enable text selection |
+| `enableSearch` | `boolean` | `true` | Enable search functionality |
+| `primaryColor` | `string` | `undefined` | Primary theme color (hex) |
+| `toolbarColor` | `string` | `undefined` | Toolbar background color (hex) |
+| `statusBarColor` | `string` | `undefined` | Status bar color - Android only (hex) |
+| `colorPalette` | `string[]` | Material colors | Custom color palette (max 9) - Android only |
+
+**Returns:** `Promise<OpenPdfResult>`
+
+```typescript
+interface OpenPdfResult {
+  dismissed: boolean;    // Whether the viewer was dismissed
+  saved?: boolean;       // Whether annotations were saved
+  savedPath?: string;    // Path to saved PDF (if different from original)
+}
+```
 
 ### isInkSupported()
 
 Checks if ink annotations are supported on the current device.
 
-Returns: `Promise<{ supported: boolean }>`
+**Returns:** `Promise<InkSupportResult>`
+
+```typescript
+interface InkSupportResult {
+  supported: boolean;        // Whether ink input is supported
+  stylusConnected?: boolean; // Whether a stylus is connected
+  lowLatencyInk?: boolean;   // Whether low-latency ink is available (Android)
+}
+```
+
+## Events
+
+### pdfSaved
+
+Fired when the PDF is saved.
+
+```typescript
+interface PdfSavedEvent {
+  path: string;              // Path to the saved PDF file
+  type: 'updated' | 'copy';  // Type of save operation
+}
+```
+
+### annotationAdded
+
+Fired when an annotation is added.
+
+```typescript
+interface AnnotationEvent {
+  type: 'ink' | 'text' | 'highlight';  // Type of annotation
+  page: number;                         // Page number
+}
+```
 
 ## Android Configuration
 
