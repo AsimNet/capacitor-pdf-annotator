@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PDF Annotator</string>
+    <string name="pdf_viewer_title">PDF Viewer</string>
+    <string name="action_save">Save</string>
+    <string name="action_undo">Undo</string>
+    <string name="action_redo">Redo</string>
+    <string name="action_clear">Clear All</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_color">Color</string>
+    <string name="color_red">Red</string>
+    <string name="color_blue">Blue</string>
+    <string name="color_green">Green</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_magenta">Magenta</string>
+    <string name="saving">Saving…</string>
+    <string name="saved_successfully">Saved successfully</string>
+    <string name="save_failed">Failed to save</string>
+    <string name="loading">Loading PDF…</string>
+    <string name="error_loading_pdf">Error loading PDF</string>
+    <string name="page_indicator">Page %1$d of %2$d</string>
+</resources>

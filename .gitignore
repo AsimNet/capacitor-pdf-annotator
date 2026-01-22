@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# iOS
+ios/Pods/
+ios/.build/
+*.xcworkspace
+*.xcuserdata/
+ios/DerivedData/
+
+# Android
+android/build/
+android/.gradle/
+android/local.properties
+android/*.iml
+android/app/build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# Capacitor
+.capacitor/
