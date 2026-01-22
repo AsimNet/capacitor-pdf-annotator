@@ -23,10 +23,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AasimDev/capacitor-pdf-annotator.git"
+    "url": "git+https://github.com/AsimNet/capacitor-pdf-annotator.git"
   },
   "bugs": {
-    "url": "https://github.com/AasimDev/capacitor-pdf-annotator/issues"
+    "url": "https://github.com/AsimNet/capacitor-pdf-annotator/issues"
   },
   "keywords": [
     "capacitor",
