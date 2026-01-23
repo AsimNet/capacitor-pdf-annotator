@@ -1,6 +1,6 @@
 {
   "name": "capacitor-pdf-annotator",
-  "version": "1.3.9",
+  "version": "1.3.10",
   "description": "A Capacitor plugin for viewing and annotating PDFs with stylus/pen support. Uses QLPreviewController on iOS and AndroidX PDF + Ink API on Android.",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
