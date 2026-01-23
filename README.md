@@ -42,7 +42,7 @@ A powerful Capacitor plugin for viewing and annotating PDF documents with stylus
 | Platform | Implementation | Notes |
 |----------|---------------|-------|
 | iOS | QLPreviewController + PencilKit | Full Apple Pencil support |
-| Android | AndroidX PDF Viewer + Ink API + PdfBox | S Pen eraser tip support |
+| Android | Native PdfRenderer + AndroidX Ink API | S Pen eraser tip support |
 | Web | Fallback (opens in new tab) | No annotation support |
 
 ## Requirements
@@ -464,7 +464,6 @@ MIT
 
 ## Credits
 
-- [AndroidX PDF Viewer](https://developer.android.com/jetpack/androidx/releases/pdf)
-- [AndroidX Ink API](https://developer.android.com/develop/ui/views/touch-and-input/stylus-input/about-ink-api)
-- [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android)
-- [PencilKit](https://developer.apple.com/documentation/pencilkit)
+- [Android PdfRenderer](https://developer.android.com/reference/android/graphics/pdf/PdfRenderer) - Native PDF rendering
+- [AndroidX Ink API](https://developer.android.com/develop/ui/views/touch-and-input/stylus-input/about-ink-api) - Low-latency stylus input
+- [PencilKit](https://developer.apple.com/documentation/pencilkit) - iOS drawing framework
