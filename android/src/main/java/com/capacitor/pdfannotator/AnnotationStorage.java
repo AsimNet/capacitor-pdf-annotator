@@ -11,7 +11,6 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -21,8 +20,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Handles saving and loading ink annotations as JSON files.
- * Annotations are stored separately from the PDF to preserve the original file.
+ * Handles saving and loading ink annotations.
+ * This class now delegates to XfdfStorage for the new XFDF format (ISO 19444-1)
+ * while providing backward compatibility for legacy JSON files.
+ *
+ * Migration strategy:
+ * 1. On load, first check for XFDF file
+ * 2. If not found, check for legacy JSON file
+ * 3. If JSON exists, convert to XFDF and delete the JSON file
+ * 4. All new saves use XFDF format
  */
 public class AnnotationStorage {
 
@@ -30,9 +36,11 @@ public class AnnotationStorage {
     private static final String ANNOTATIONS_DIR = "pdf_annotations";
 
     private final Context context;
+    private final XfdfStorage xfdfStorage;
 
     public AnnotationStorage(Context context) {
         this.context = context;
+        this.xfdfStorage = new XfdfStorage(context);
     }
 
     /**
@@ -47,9 +55,9 @@ public class AnnotationStorage {
     }
 
     /**
-     * Generate a unique filename for annotations based on PDF path.
+     * Generate a unique filename for legacy JSON annotations based on PDF path.
      */
-    private String getAnnotationFileName(String pdfPath) {
+    private String getLegacyJsonFileName(String pdfPath) {
         try {
             MessageDigest digest = MessageDigest.getInstance("MD5");
             byte[] hash = digest.digest(pdfPath.getBytes());
@@ -68,70 +76,63 @@ public class AnnotationStorage {
 
     /**
      * Save annotations for a PDF file.
+     * Now uses XFDF format for cross-platform compatibility.
      */
     public boolean saveAnnotations(String pdfPath, Map<Integer, List<InkCanvasView.InkStroke>> strokesByPage) {
-        try {
-            JSONObject root = new JSONObject();
-            root.put("pdfPath", pdfPath);
-            root.put("version", 1);
-
-            JSONArray pagesArray = new JSONArray();
-            for (Map.Entry<Integer, List<InkCanvasView.InkStroke>> entry : strokesByPage.entrySet()) {
-                int pageIndex = entry.getKey();
-                List<InkCanvasView.InkStroke> strokes = entry.getValue();
-
-                if (strokes.isEmpty()) continue;
-
-                JSONObject pageObj = new JSONObject();
-                pageObj.put("pageIndex", pageIndex);
-
-                JSONArray strokesArray = new JSONArray();
-                for (InkCanvasView.InkStroke stroke : strokes) {
-                    JSONObject strokeObj = new JSONObject();
-                    strokeObj.put("color", stroke.color);
-                    strokeObj.put("strokeWidth", stroke.strokeWidth);
-                    strokeObj.put("brushType", stroke.brushType);
-
-                    JSONArray pointsArray = new JSONArray();
-                    for (PointF point : stroke.points) {
-                        JSONObject pointObj = new JSONObject();
-                        pointObj.put("x", point.x);
-                        pointObj.put("y", point.y);
-                        pointsArray.put(pointObj);
-                    }
-                    strokeObj.put("points", pointsArray);
-                    strokesArray.put(strokeObj);
-                }
-                pageObj.put("strokes", strokesArray);
-                pagesArray.put(pageObj);
-            }
-            root.put("pages", pagesArray);
-
-            // Write to file
-            File annotationFile = new File(getAnnotationsDir(), getAnnotationFileName(pdfPath));
-            FileWriter writer = new FileWriter(annotationFile);
-            writer.write(root.toString());
-            writer.close();
-
-            Log.d(TAG, "Saved annotations to: " + annotationFile.getAbsolutePath());
-            return true;
-
-        } catch (JSONException | IOException e) {
-            Log.e(TAG, "Error saving annotations", e);
-            return false;
-        }
+        return xfdfStorage.saveAnnotations(pdfPath, strokesByPage);
     }
 
     /**
      * Load annotations for a PDF file.
-     * Returns a map of page index to list of strokes.
+     * Checks for XFDF first, then falls back to legacy JSON with automatic migration.
+     *
+     * @param pdfPath Path to the PDF file
+     * @return Map of page index to list of strokes
      */
     public Map<Integer, List<InkCanvasView.InkStroke>> loadAnnotations(String pdfPath) {
+        // First, try to load from XFDF format
+        if (xfdfStorage.hasAnnotations(pdfPath)) {
+            Log.d(TAG, "Loading annotations from XFDF format");
+            return xfdfStorage.loadAnnotations(pdfPath);
+        }
+
+        // Check for legacy JSON file
+        File legacyJsonFile = new File(getAnnotationsDir(), getLegacyJsonFileName(pdfPath));
+        if (legacyJsonFile.exists()) {
+            Log.d(TAG, "Found legacy JSON annotations, migrating to XFDF");
+            Map<Integer, List<InkCanvasView.InkStroke>> strokesByPage = loadLegacyJsonAnnotations(pdfPath);
+
+            if (!strokesByPage.isEmpty()) {
+                // Migrate to XFDF format
+                boolean migrated = xfdfStorage.saveAnnotations(pdfPath, strokesByPage);
+                if (migrated) {
+                    // Delete legacy JSON file after successful migration
+                    if (legacyJsonFile.delete()) {
+                        Log.d(TAG, "Successfully migrated to XFDF and deleted legacy JSON file");
+                    } else {
+                        Log.w(TAG, "Migrated to XFDF but failed to delete legacy JSON file");
+                    }
+                } else {
+                    Log.w(TAG, "Failed to migrate to XFDF, keeping legacy JSON file");
+                }
+            }
+
+            return strokesByPage;
+        }
+
+        Log.d(TAG, "No annotations file found for: " + pdfPath);
+        return new HashMap<>();
+    }
+
+    /**
+     * Load annotations from legacy JSON format.
+     * This method is kept for backward compatibility during migration.
+     */
+    private Map<Integer, List<InkCanvasView.InkStroke>> loadLegacyJsonAnnotations(String pdfPath) {
         Map<Integer, List<InkCanvasView.InkStroke>> strokesByPage = new HashMap<>();
 
-        File annotationFile = new File(getAnnotationsDir(), getAnnotationFileName(pdfPath));
+        File annotationFile = new File(getAnnotationsDir(), getLegacyJsonFileName(pdfPath));
         if (!annotationFile.exists()) {
-            Log.d(TAG, "No annotations file found for: " + pdfPath);
             return strokesByPage;
         }
 
@@ -187,10 +188,10 @@ public class AnnotationStorage {
                 strokesByPage.put(pageIndex, strokes);
             }
 
-            Log.d(TAG, "Loaded annotations from: " + annotationFile.getAbsolutePath());
+            Log.d(TAG, "Loaded legacy JSON annotations from: " + annotationFile.getAbsolutePath());
 
         } catch (JSONException | IOException e) {
-            Log.e(TAG, "Error loading annotations", e);
+            Log.e(TAG, "Error loading legacy JSON annotations", e);
         }
 
         return strokesByPage;
@@ -198,20 +199,64 @@ public class AnnotationStorage {
 
     /**
      * Delete annotations for a PDF file.
+     * Deletes both XFDF and legacy JSON files if they exist.
      */
     public boolean deleteAnnotations(String pdfPath) {
-        File annotationFile = new File(getAnnotationsDir(), getAnnotationFileName(pdfPath));
-        if (annotationFile.exists()) {
-            return annotationFile.delete();
+        boolean xfdfDeleted = xfdfStorage.deleteAnnotations(pdfPath);
+
+        // Also delete legacy JSON file if it exists
+        File legacyJsonFile = new File(getAnnotationsDir(), getLegacyJsonFileName(pdfPath));
+        boolean jsonDeleted = true;
+        if (legacyJsonFile.exists()) {
+            jsonDeleted = legacyJsonFile.delete();
         }
-        return true;
+
+        return xfdfDeleted && jsonDeleted;
     }
 
     /**
      * Check if annotations exist for a PDF file.
+     * Checks both XFDF and legacy JSON formats.
      */
     public boolean hasAnnotations(String pdfPath) {
-        File annotationFile = new File(getAnnotationsDir(), getAnnotationFileName(pdfPath));
-        return annotationFile.exists();
+        if (xfdfStorage.hasAnnotations(pdfPath)) {
+            return true;
+        }
+
+        // Check legacy JSON file
+        File legacyJsonFile = new File(getAnnotationsDir(), getLegacyJsonFileName(pdfPath));
+        return legacyJsonFile.exists();
+    }
+
+    /**
+     * Export annotations as XFDF string for server upload.
+     *
+     * @param pdfPath Path to the PDF file
+     * @param strokesByPage Current strokes (if available), otherwise loads from storage
+     * @return XFDF XML string
+     */
+    public String exportAnnotationsAsXfdf(String pdfPath, Map<Integer, List<InkCanvasView.InkStroke>> strokesByPage) {
+        if (strokesByPage == null || strokesByPage.isEmpty()) {
+            strokesByPage = loadAnnotations(pdfPath);
+        }
+        return xfdfStorage.exportAnnotationsAsString(pdfPath, strokesByPage);
+    }
+
+    /**
+     * Import annotations from XFDF string and save to storage.
+     *
+     * @param pdfPath Path to the PDF file
+     * @param xfdfContent XFDF XML string
+     * @return true if import was successful
+     */
+    public boolean importAnnotationsFromXfdf(String pdfPath, String xfdfContent) {
+        return xfdfStorage.importAnnotationsFromString(pdfPath, xfdfContent);
+    }
+
+    /**
+     * Get the XfdfStorage instance for direct access to XFDF operations.
+     */
+    public XfdfStorage getXfdfStorage() {
+        return xfdfStorage;
     }
 }

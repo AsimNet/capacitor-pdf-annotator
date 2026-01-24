@@ -12,11 +12,16 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONException;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 @CapacitorPlugin(name = "PdfAnnotator")
 public class PdfAnnotatorPlugin extends Plugin {
 
     private static final String TAG = "PdfAnnotatorPlugin";
     private PluginCall savedCall;
+    private AnnotationStorage annotationStorage;
 
     @PluginMethod
     public void openPdf(PluginCall call) {
@@ -145,5 +150,151 @@ public class PdfAnnotatorPlugin extends Plugin {
         ret.put("lowLatencyInk", lowLatencyInk);
 
         call.resolve(ret);
+    }
+
+    /**
+     * Export annotations for a PDF file as XFDF string.
+     * This can be used to upload annotations to a server for cloud sync.
+     *
+     * @param call Plugin call with "url" parameter (PDF file path)
+     */
+    @PluginMethod
+    public void exportAnnotations(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.isEmpty()) {
+            call.reject("URL parameter is required");
+            return;
+        }
+
+        // Convert URL to path
+        String pdfPath = urlToPath(url);
+
+        // Initialize storage if needed
+        if (annotationStorage == null) {
+            annotationStorage = new AnnotationStorage(getContext());
+        }
+
+        // Load and export annotations
+        Map<Integer, List<InkCanvasView.InkStroke>> strokesByPage = annotationStorage.loadAnnotations(pdfPath);
+        String xfdf = annotationStorage.exportAnnotationsAsXfdf(pdfPath, strokesByPage);
+
+        if (xfdf == null) {
+            call.reject("Failed to export annotations");
+            return;
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("xfdf", xfdf);
+        call.resolve(ret);
+    }
+
+    /**
+     * Import annotations from XFDF string and save to storage.
+     * This can be used to download annotations from a server for cloud sync.
+     *
+     * @param call Plugin call with "url" (PDF file path) and "xfdf" (XFDF content) parameters
+     */
+    @PluginMethod
+    public void importAnnotations(PluginCall call) {
+        String url = call.getString("url");
+        String xfdf = call.getString("xfdf");
+
+        if (url == null || url.isEmpty()) {
+            call.reject("URL parameter is required");
+            return;
+        }
+
+        if (xfdf == null || xfdf.isEmpty()) {
+            call.reject("XFDF parameter is required");
+            return;
+        }
+
+        // Convert URL to path
+        String pdfPath = urlToPath(url);
+
+        // Initialize storage if needed
+        if (annotationStorage == null) {
+            annotationStorage = new AnnotationStorage(getContext());
+        }
+
+        // Import annotations
+        boolean success = annotationStorage.importAnnotationsFromXfdf(pdfPath, xfdf);
+
+        if (!success) {
+            call.reject("Failed to import annotations");
+            return;
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    /**
+     * Check if annotations exist for a PDF file.
+     *
+     * @param call Plugin call with "url" parameter (PDF file path)
+     */
+    @PluginMethod
+    public void hasAnnotations(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.isEmpty()) {
+            call.reject("URL parameter is required");
+            return;
+        }
+
+        // Convert URL to path
+        String pdfPath = urlToPath(url);
+
+        // Initialize storage if needed
+        if (annotationStorage == null) {
+            annotationStorage = new AnnotationStorage(getContext());
+        }
+
+        boolean exists = annotationStorage.hasAnnotations(pdfPath);
+
+        JSObject ret = new JSObject();
+        ret.put("hasAnnotations", exists);
+        call.resolve(ret);
+    }
+
+    /**
+     * Delete annotations for a PDF file.
+     *
+     * @param call Plugin call with "url" parameter (PDF file path)
+     */
+    @PluginMethod
+    public void deleteAnnotations(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || url.isEmpty()) {
+            call.reject("URL parameter is required");
+            return;
+        }
+
+        // Convert URL to path
+        String pdfPath = urlToPath(url);
+
+        // Initialize storage if needed
+        if (annotationStorage == null) {
+            annotationStorage = new AnnotationStorage(getContext());
+        }
+
+        boolean success = annotationStorage.deleteAnnotations(pdfPath);
+
+        JSObject ret = new JSObject();
+        ret.put("success", success);
+        call.resolve(ret);
+    }
+
+    /**
+     * Convert URL to file path.
+     */
+    private String urlToPath(String url) {
+        if (url.startsWith("file://")) {
+            return url.substring(7);
+        } else if (url.startsWith("/")) {
+            return url;
+        }
+        return url;
     }
 }

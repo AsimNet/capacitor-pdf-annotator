@@ -13,6 +13,37 @@ export interface PdfAnnotatorPlugin {
   isInkSupported(): Promise<InkSupportResult>;
 
   /**
+   * Export annotations for a PDF file as XFDF string.
+   * XFDF (ISO 19444-1) is a standard format for PDF annotations
+   * that provides cross-platform compatibility.
+   * @param options - Options with the PDF URL
+   * @returns Promise with the XFDF content
+   */
+  exportAnnotations(options: ExportAnnotationsOptions): Promise<ExportAnnotationsResult>;
+
+  /**
+   * Import annotations from XFDF string and save to storage.
+   * Use this to apply annotations downloaded from a server.
+   * @param options - Options with the PDF URL and XFDF content
+   * @returns Promise that resolves when import is complete
+   */
+  importAnnotations(options: ImportAnnotationsOptions): Promise<ImportAnnotationsResult>;
+
+  /**
+   * Check if annotations exist for a PDF file.
+   * @param options - Options with the PDF URL
+   * @returns Promise with existence status
+   */
+  hasAnnotations(options: HasAnnotationsOptions): Promise<HasAnnotationsResult>;
+
+  /**
+   * Delete annotations for a PDF file.
+   * @param options - Options with the PDF URL
+   * @returns Promise that resolves when deletion is complete
+   */
+  deleteAnnotations(options: DeleteAnnotationsOptions): Promise<DeleteAnnotationsResult>;
+
+  /**
    * Add a listener for PDF events
    * @param eventName - Name of the event to listen for
    * @param listenerFunc - Callback function
@@ -182,4 +213,95 @@ export interface AnnotationEvent {
 
 export interface PluginListenerHandle {
   remove: () => Promise<void>;
+}
+
+/**
+ * Options for exporting annotations
+ */
+export interface ExportAnnotationsOptions {
+  /**
+   * The file URL or path to the PDF document
+   * Can be a file:// URL or absolute path
+   */
+  url: string;
+}
+
+/**
+ * Result of exporting annotations
+ */
+export interface ExportAnnotationsResult {
+  /**
+   * XFDF XML content containing the annotations
+   * This can be uploaded to a server for cloud sync
+   */
+  xfdf: string;
+}
+
+/**
+ * Options for importing annotations
+ */
+export interface ImportAnnotationsOptions {
+  /**
+   * The file URL or path to the PDF document
+   * Can be a file:// URL or absolute path
+   */
+  url: string;
+
+  /**
+   * XFDF XML content to import
+   * Downloaded from a server or another device
+   */
+  xfdf: string;
+}
+
+/**
+ * Result of importing annotations
+ */
+export interface ImportAnnotationsResult {
+  /**
+   * Whether the import was successful
+   */
+  success: boolean;
+}
+
+/**
+ * Options for checking if annotations exist
+ */
+export interface HasAnnotationsOptions {
+  /**
+   * The file URL or path to the PDF document
+   * Can be a file:// URL or absolute path
+   */
+  url: string;
+}
+
+/**
+ * Result of checking if annotations exist
+ */
+export interface HasAnnotationsResult {
+  /**
+   * Whether annotations exist for the PDF
+   */
+  hasAnnotations: boolean;
+}
+
+/**
+ * Options for deleting annotations
+ */
+export interface DeleteAnnotationsOptions {
+  /**
+   * The file URL or path to the PDF document
+   * Can be a file:// URL or absolute path
+   */
+  url: string;
+}
+
+/**
+ * Result of deleting annotations
+ */
+export interface DeleteAnnotationsResult {
+  /**
+   * Whether the deletion was successful
+   */
+  success: boolean;
 }

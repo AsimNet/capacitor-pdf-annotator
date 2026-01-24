@@ -6,11 +6,11 @@ let package = Package(
     platforms: [.iOS(.v14)],
     products: [
         .library(
-            name: "PdfAnnotatorPlugin",
+            name: "CapacitorPdfAnnotator",
             targets: ["PdfAnnotatorPlugin"])
     ],
     dependencies: [
-        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", branch: "main")
+        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "7.0.0")
     ],
     targets: [
         .target(

@@ -678,7 +678,7 @@ public class PdfViewerActivity extends AppCompatActivity implements InkCanvasVie
                 // No strokes, delete the annotation file
                 success = annotationStorage.deleteAnnotations(pdfPath);
             } else {
-                // Save strokes to JSON file
+                // Save strokes to XFDF file (cross-platform format)
                 success = annotationStorage.saveAnnotations(pdfPath, strokesByPage);
             }
 
